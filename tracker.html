@@ -1,0 +1,3536 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>pl_synth</title>
+	<style>
+		:root {
+			--primary_100: #79D8C2;
+			--primary_75: #579D8C;
+			--primary_50: #3F6F63;
+			--primary_unfocused: #fff;
+			--primary_contrast: #000;
+
+			--secondary: #FF971B;
+
+			--text_100: #fff;
+			--text_50: #aaa;
+
+			--background: #111;
+			--background_alt: #181818;
+
+			--hover_text: #fff;
+			--hover_background: #444;
+			--border: #333;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html {
+			color: var(--text_100);
+			background: var(--background);
+			font-family: monospace;
+			font-size: 10pt;
+			text-transform: uppercase;
+			font-weight: bold;
+			height: 100%;
+		}
+
+		body {
+			height: 100%;
+			padding: 4px;
+			margin: 0;
+		}
+
+		/* Layout ------------------------------------------------------------*/
+
+		.app {
+			display: flex;
+			height: 100%;
+			flex-direction: column;
+		}
+
+		.menu {
+			padding: 0.5em;
+
+			div {
+				border-right: 1px solid var(--border);
+				margin-right: 1em;
+				padding-right: 1em;
+			}
+
+			.logo {
+				padding: 4px 0;
+			}
+
+			.slashes {
+				color: var(--primary_100);
+				padding: 0 0 0 1em;
+			}
+
+			canvas.meter {
+				display: block;
+			}
+
+			.indicator {
+				user-select: none;
+				display: inline-block;
+				color: var(--text_50);
+				line-height: 0.75;
+				font-size: 20px;
+				width: 2em;
+				text-align: center;
+				cursor: pointer;
+				.if_playing { display: none;}
+				.if_stopped { display: inline; }
+			}
+			.indicator:hover {
+				color: var(--hover_text);
+			}
+
+			.indicator.playing {
+				color: var(--secondary);
+				.if_playing { display: inline; }
+				.if_stopped { display: none; }
+			}
+		}
+
+		.pane {
+			border: 1px solid var(--border);
+			margin: 4px;
+			border-radius: 4px;
+		}
+
+		.column {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.head {
+			padding: 0.26em 0.5em;
+			color: var(--text_50);
+			display: flex;
+			justify-content: space-between;
+		}
+
+		.row {
+			align-items: stretch;
+			display: flex;
+		}
+
+		.tracker {
+			flex-grow: 1;
+			height: 100%;
+			display: flex;
+		}
+
+		.sequencer {
+			display: flex;
+			flex-direction: column;
+			flex-grow: 1;
+		}
+
+		.track_container {
+			flex-grow: 1;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.track {
+			flex-grow: 1;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.patterns {
+			flex-shrink: 1;
+			height: 100%;
+			align-items: stretch;
+			display: flex;
+		}
+
+		.pattern {
+			flex-grow: 1;
+			min-width: 7em;
+			display: flex;
+			flex-direction: column;
+			xheight: calc(100% - 10px);
+		}
+
+		.pattern table tr:nth-child(4n-3) {
+			background-color: var(--background_alt);
+		}
+
+		.scroll_stretch {
+			flex: 1 1 auto;
+			overflow: auto;
+			height: 0;
+		}
+
+		.log {
+			flex-shrink: 1;
+			height: 20%;
+			display: flex;
+			flex-direction: column;
+
+			.content {
+				position: relative;
+				width: 100%;
+				height: 100%;
+
+				text-transform: none;
+				color: var(--text_50);
+				font-family: monospace;
+				font-weight: normal;
+				font-size: 80%;
+
+				.lines {
+					position: absolute;
+					width: 100%;
+					height: 100%;
+					overflow: auto;
+					padding: 0.26em 0.5em;
+
+					.line:hover {
+						background-color: var(--hover_background);
+						color: var(--text_100);
+					}
+					.line_start {
+						color: var(--primary_100);
+						margin-right: 0.25em;
+					}
+				}
+			}
+		}
+
+
+		/* Modal -------------------------------------------------------------*/
+
+		.modal_background {
+			position: fixed;
+			z-index: 10;
+			left: 0;
+			right: 0;
+			top: 0;
+			bottom: 0;
+			background-color: rgba(0,0,0,0.5);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+
+			.modal {
+				border: 1px solid var(--border);
+				background-color: var(--background);
+				padding: 1em;
+				border-radius: 4px;
+				box-shadow: 0 0px 15px rgba(0,0,0,0.25);
+				max-width: 800px;
+				width: 100%;
+				max-height: 95vh;
+				overflow: auto;
+
+				.description {
+					color: var(--text_50);
+				}
+
+				.buttons {
+					text-align: right;
+					padding: 1em 0;
+
+					button {
+						padding: 8px 14px;
+					}
+				}
+			}
+
+			.help {
+				font-weight: normal;
+				text-transform: none;
+			}
+			.help p {
+				padding: 0.25em 0;
+			}
+		}
+
+
+		/* Buttons/Input -----------------------------------------------------*/
+
+		button, input, select, textarea {
+			margin: 0 0.4em;
+			color: var(--text_50);
+			background-color: #222;
+			border: none;
+			padding: 4px 7px;
+			text-transform: uppercase;
+			border-radius: 4px;
+		}
+		textarea {
+			text-align: left;
+			width: 100%;
+			height: 12em;
+			text-transform: none;
+			color: var(--text_100);
+		}
+		textarea.data, input.data {
+			width: 100%;
+			text-transform: none;
+			font-family: monospace;
+			tab-size: 2;
+		}
+		button {
+			background-color: #333;
+			text-align: center;
+			cursor: pointer;
+		}
+		button:hover, input:hover, select:hover {
+			background-color: var(--hover_background);
+			color: var(--hover_text);
+		}
+		input[type=number] {
+			width: 5em;
+		}
+
+		button.small {
+			font-size: 80%;
+			text-align: center;
+			padding: 3px 6px;
+			display: inline-block;
+			margin: 0 1px;
+		}
+
+		.checkbox {
+			user-select: none;
+			padding: 0;
+			margin: 0 0 0 4px;
+
+			input {
+				position: absolute;
+				visibility: hidden;
+			}
+
+			 span {
+				font-size: 80%;
+				text-align: center;
+				padding: 3px 6px;
+				display: inline-block;
+				color: var(--text_50);
+				background-color: #222;
+				cursor: pointer;
+				font-weight: normal;
+				border-radius: 4px;
+			}
+
+			span:hover {
+				background-color: var(--hover_background);
+				color: var(--hover_text);
+			}
+
+			input {
+				position: absolute;
+				visibility: hidden;
+			}
+
+			input:checked+span {
+				background-color: var(--primary_100);
+				border-color: var(--primary_100);
+				color: var(--primary_contrast);
+			}
+		}
+
+		.radio_select {
+			user-select: none;
+			display: flex;
+
+			label {
+				padding: 0;
+				margin: 0;
+			}
+
+			label span {
+				font-size: 80%;
+				text-align: center;
+				padding: 3px 6px;
+				display: inline-block;
+				color: var(--text_50);
+				background-color: #222;
+				cursor: pointer;
+				font-weight: normal;
+				border-left: 1px solid var(--border);
+			}
+
+			label:hover span {
+				background-color: #444;
+				color: var(--hover_text);
+			}
+
+			label:first-child span {
+				border-top-left-radius: 4px;
+				border-bottom-left-radius: 4px;
+				border-left: none;
+			}
+
+			label:last-child span {
+				border-top-right-radius: 4px;
+				border-bottom-right-radius: 4px;
+			}
+
+			label input {
+				position: absolute;
+				visibility: hidden;
+			}
+
+			label input:checked+span {
+				background-color: var(--primary_100);
+				border-color: var(--primary_100);
+				color: var(--primary_contrast);
+			}
+		}
+
+		.range {
+			user-select: none;
+			width: 240px;
+			height: 20px;
+			display: flex;
+			justify-content: space-between;
+			padding: 0.1em 0;
+
+			.slider {
+				position: relative;
+				cursor: pointer;
+				height: 20px;
+				width: 192px;
+
+				.track {
+					margin-top: 6px;
+					height: 4px;
+					width: 100%;
+					background-color: var(--hover_background);
+				}
+				.pos {
+					position: absolute;
+					top: 6px;
+					height: 4px;
+					left: 0;
+					background-color: var(--primary_75);
+				}
+				.tip {
+					position: absolute;
+					top: -26px;
+					display: none;
+					translate: -50% 0;
+					padding: 0 4px;
+					background-color: var(--primary_100);
+					color: var(--primary_contrast);
+					border-radius: 2px;
+				}
+				.tip::after {
+					content: '';
+					position: absolute;
+					bottom: -10px;
+					left: 0;
+					right: 0;
+					margin: auto;
+					width: 0;
+					height: 0;
+					border-left: 8px solid transparent;
+					border-right: 8px solid transparent;
+					border-top: 10px solid var(--primary_100);
+				}
+			}
+			.slider:hover {
+				.track {
+					background-color: #666;
+				}
+				.pos {
+					background-color: var(--primary_100);
+				}
+			}
+		}
+
+
+		/* Tables ------------------------------------------------------------*/
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			user-select: none;
+		}
+
+		tr {
+			xheight: 1.5em;
+		}
+
+		td {
+			text-align: center;
+			xwidth: 2em;
+			border: 1px solid var(--border);
+			padding: 0.25em;
+		}
+
+		td:first-child {
+			border-left: 0;
+		}
+
+		td:last-child {
+			border-right: 0;
+		}
+
+		td.note {
+			letter-spacing: 0.1em;
+		}
+
+		.sequencer td {
+			width: 1.8em;
+		}
+
+		td.input:hover {
+			background-color: #222;
+		}
+		
+		td.idx {
+			width: 1.8em;
+			color: #444;
+			text-align: right;
+		}
+		td.vidx {
+			width: 1.8em;
+			color: #444;
+			text-align: center;
+		}
+
+		tr.active td.note, 
+		tr.active:hover td.note,
+		td.active, 
+		td.active:hover {
+			color: var(--primary_contrast);
+			background-color: var(--primary_unfocused);
+		}
+		tr.active td.idx, 
+		td.idx.active, 
+		td.vidx.active {
+			color: var(--primary_contrast);
+			background-color: #999;
+		}
+
+		td.playhead,
+		tr.playhead td {
+			background-color: var(--secondary) !important;
+		}
+
+		.pane.active {
+			border-color: var(--primary_unfocused);
+		}
+
+		.pane.focus {
+			border-color: var(--primary_100);
+			.head {
+				color: var(--primary_100);
+			}
+			tr.active td.note, tr.active:hover td.note,
+			td.active, td.active:hover {
+				color: var(--primary_contrast);
+				background-color: var(--primary_100);
+			}
+			tr.active td.idx, td.idx.active, td.vidx.active {
+				color: var(--primary_contrast);
+				background-color: var(--primary_50);
+			}
+		}
+
+
+		/* Instrument --------------------------------------------------------*/
+
+		.instrument {
+			display: flex;
+			
+			.module {
+				padding: 0.75em 0.5em 0.25em 0.5em;
+				border-right: 1px solid var(--border);
+				border-bottom: 1px solid var(--border);
+				flex-grow: 1;
+
+				.title {
+					color: var(--text_50);
+					padding-bottom: 0.5em;
+					display: flex;
+					justify-content: space-between;
+				}
+
+				.options {
+					text-align: right;
+					margin: 6px 0 0 0;
+				}
+			}
+			.module:last-child {
+				border-bottom: 0;
+			}
+
+			.preview {
+				display: block;
+				flex: 1 1 auto;
+				position: relative;
+
+				canvas.waveform {
+					width: 100%;
+					height: 100%;
+					position: absolute;
+				}
+			}
+		}
+
+
+		/* Piano -------------------------------------------------------------*/
+		
+		@keyframes flash {  
+			from { background: var(--primary_100); }
+			to   { background: default; }
+		}
+
+		.piano {
+			display: flex;
+			max-width: 1400px;
+
+			.octave {
+				display: flex;
+				flex-direction: column;
+				span {
+					flex-grow: 1;
+					text-align: center;
+					width: 2em;
+					display: flex;
+					flex-direction: column;
+					justify-content: center;
+				}
+				span.move {
+					user-select: none;
+					color: #555;
+					cursor: pointer;
+				}
+				span.move:hover {
+					color: var(--primary_100);
+				}
+			}
+
+			.keys {
+				flex-grow: 1;
+				display: flex;
+				align-items: flex-start;
+
+				span {
+					cursor: pointer;
+					user-select: none;
+					padding-top: 76px;
+					padding-bottom: 4px;
+					color: var(--text_50);
+					border-bottom-left-radius: 2px;
+					border-bottom-right-radius: 2px;
+					text-align: center;
+					box-shadow: 0 0 0px 1px #0006;
+					flex: 1;
+					background-color: #333;
+					
+				}
+
+				span.active {
+					animation-name: flash;
+					animation-duration: 0.5s;
+				}
+
+				span:nth-child(12n+2),
+				span:nth-child(12n+4),
+				span:nth-child(12n+7),
+				span:nth-child(12n+9),
+				span:nth-child(12n+11) {
+					background-color: #222;
+					padding-top: 40px;
+					margin: 0 -11px;
+					flex: .75;
+					z-index: 1;
+					margin: 0 -1.75%;
+				}
+				span:hover {
+					filter: brightness(120%);
+				}
+				span + span {
+					margin-left: 1px;
+				}
+			}
+		}
+	</style>
+</head>
+<body>
+<script type="text/javascript" src="release/pl_synth_wasm.min.js"></script>
+<script type="text/javascript">
+
+// -----------------------------------------------------------------------------
+// Utils
+
+let repeat = (n, cb) => {
+	let a = Array(n);
+	for (let i = 0; i < n; i++) {
+		a[i] = cb(i);
+	}
+	return a;
+};
+
+let copy = (a) => {
+	if (!val) {
+		return val;
+	}
+	if (Array.isArray(val)) {
+		var arr = [];
+		var length = val.length;
+		for (var i = 0; i < length; i++) arr.push(copy(val[i]))
+			return arr;
+	}
+	else if (typeof val === 'object') {
+		var keys = Object.Keys(val);
+		var newObject = {};
+		for (var i = keys.length - 1; i > -1; i--) {
+			var key = keys[i];
+			newObject[key] = copy(val[key]);
+		}
+		return newObject;
+	}
+	return val;
+};
+
+let truncate = (a) => {
+	while (a.length && a[a.length - 1] === 0) {
+		a.pop();
+	}
+	return a;
+};
+
+let undefineZero = (data) => {
+	for (let i = 0; i < data.length; i++) {
+		data[i] = Array.isArray(data[i]) ? undefineZero(data[i]) : (data[i] === 0 ? null : data[i]);
+	}
+	return data;
+};
+
+let unundefineZero = (data) => {
+	for (let i = 0; i < data.length; i++) {
+		data[i] = Array.isArray(data[i]) ? unundefineZero(data[i]) : (data[i] ?? 0);
+	}
+	return data;
+};
+
+let clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+const compress = (string, callback) => {
+    const blobToBase64 = blob => new Promise((resolve, _) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+    });
+    const byteArray = new TextEncoder().encode(string);
+    const cs = new CompressionStream('deflate');
+    const writer = cs.writable.getWriter();
+    writer.write(byteArray);
+    writer.close();
+    new Response(cs.readable).blob().then(blobToBase64).then(callback);
+};
+
+const decompress = (base64string, callback) => {
+    const bytes = Uint8Array.from(atob(base64string), c => c.charCodeAt(0));
+    const cs = new DecompressionStream('deflate');
+    const writer = cs.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    return new Response(cs.readable).arrayBuffer()
+    	.then(arrayBuffer => new TextDecoder().decode(arrayBuffer))
+    	.then(callback);
+};
+
+
+// -----------------------------------------------------------------------------
+// DOM "Library"
+
+let recursiveAppend = (el, childOrArray) => {
+	if (childOrArray instanceof HTMLElement) {
+		el.appendChild(childOrArray);
+	}
+	else if (Array.isArray(childOrArray)) {
+		for (let child of childOrArray) {
+			recursiveAppend(el, child)
+		}
+	}
+	else if (childOrArray instanceof HTMLComponent) {
+		el.appendChild(childOrArray.element);
+	}
+	else if (childOrArray instanceof Object) {
+		for (let key in childOrArray) {
+			recursiveAppend(el, childOrArray[key]);
+		}
+	}
+};
+
+let h = (type, attr, ...children) => {
+	let el = document.createElement(type);
+	if (attr) {
+		for (let name in attr) {
+			let v = attr[name];
+			if (name === 'oncreate') { continue; }
+			else if (name === 'class') { name = 'className'; }
+			else if (name === 'text') { name = 'textContent'; }
+			el[name] = v;
+		}
+	}
+	recursiveAppend(el, children);
+	if (attr?.oncreate) {
+		attr?.oncreate(el);
+	}
+	return el;
+};
+
+class HTMLComponent {
+	element = null;
+}
+
+
+// -----------------------------------------------------------------------------
+// Custom input elements
+
+class Checkbox extends HTMLComponent {
+	default = 0;
+	value = 0;
+	radios = {};
+	checkbox = null;
+	onChangeCallback = null;
+
+	constructor(name, settings) {
+		super();
+
+		this.default = settings.default ?? 0;
+		this.onChangeCallback = settings.onchange ?? null;
+
+		this.checkbox = h('input', {type: 'checkbox', value: 1, onchange: ev => this.onChange(ev)});
+		this.element = h('label', {class: 'checkbox', title: settings.title ?? ''}, 
+			this.checkbox,
+			h('span', {text: name})
+		);
+		this.reset();
+	}
+
+	reset() {
+		this.set(this.default);
+	}
+
+	onChange(ev, value) {
+		if (this.onChangeCallback) {
+			this.onChangeCallback(this.checkbox.checked ? 1 : 0);
+		}
+	}
+
+	set(value) {
+		if (this.checkbox.checked == value) {
+			return false;
+		}
+		this.checkbox.checked = value;
+		this.value = value;
+		return true;
+	}
+}
+
+class RadioSelect extends HTMLComponent {
+	static UniqueId = 0;
+
+	default = 0;
+	value = null;
+	radios = {};
+	onChangeCallback = null;
+
+	constructor(options, settings) {
+		super();
+
+		this.default = settings.default ?? Object.keys(options)[0];
+		this.onChangeCallback = settings.onchange ?? null;
+
+		let groupName = 'radio_select_' + (RadioSelect.UniqueId++);
+		this.element = h('div', {class: 'radio_select'}, 
+			options.map(opt => {
+				let radio = h('input', {type: 'radio', name: groupName, value: opt.value, onchange: ev => this.onChange(ev, opt.value)});
+				this.radios[opt.value] = radio;
+
+				return h('label', {title: opt.title ?? ''},
+					radio,
+					h('span', {text: opt.text})
+				);
+			})
+		);
+		this.reset();
+	}
+
+	reset() {
+		this.set(this.default);
+	}
+
+	onChange(ev, value) {
+		if (this.onChangeCallback) {
+			this.onChangeCallback(value);
+		}
+	}
+
+	set(value) {
+		if (this.radios[value].checked) {
+			return false;
+		}
+
+		this.value = parseInt(value);
+		this.radios[value].checked = true;
+		return true;
+	}
+}
+
+class RangeSlider extends HTMLComponent {
+	value = 0;
+	default = 0;
+	min = 0;
+	max = 255;
+	pow = 1;
+	onChangeCallback = null;
+	boundOnMouseMove = null;
+	rect = null;
+	pos = null;
+	tip = null;
+	constructor(name, settings) {
+		super();
+
+		this.default = settings.default ?? 0;
+		this.pow = settings.pow ?? 1;
+		this.min = settings.min ?? 0;
+		this.max = settings.max ?? 255;
+		this.onChangeCallback = settings.onchange ?? null;
+
+		this.boundOnMouseMove = this.onMouseMove.bind(this);
+		this.element = h('div', {class: 'range'}, 
+			h('div', {class: 'name', text: name, title: settings.title ?? ''}),
+			h('div', {class: 'slider', onmousedown: ev => this.onMouseDown(ev)}, 
+				h('div', {class: 'track'}),
+				h('div', {class: 'pos', oncreate: el => this.pos = el}),
+				h('div', {class: 'tip', oncreate: el => this.tip = el})
+			)
+		);
+		this.reset();
+	}
+
+	reset() {
+		this.set(this.default);
+	}
+
+	onMouseDown(ev) {
+		ev.preventDefault();
+		this.rect = ev.currentTarget.getBoundingClientRect();
+		this.setFromMousePos(ev.clientX);
+		window.addEventListener('mousemove', this.boundOnMouseMove);
+		window.addEventListener('mouseup', this.onMouseUp.bind(this), {once: true});
+		this.tip.style.display = 'block';
+	}
+
+	onMouseMove(ev) {
+		this.setFromMousePos(ev.clientX);
+	}
+
+	onMouseUp(ev) {
+		this.tip.style.display = 'none';
+		window.removeEventListener('mousemove', this.boundOnMouseMove);
+	}
+
+	setFromMousePos(x) {
+		let f = Math.pow(clamp((x - this.rect.x) / this.rect.width, 0 ,1), this.pow);
+		let range = this.max - this.min;
+		let currentValue = this.value;
+		this.set(f * range + this.min);
+		if (this.value !== currentValue && this.onChangeCallback) {
+			this.onChangeCallback(this.value);
+		}
+	}
+
+	set(value) {
+		this.value = clamp(Math.round(value), this.min, this.max);
+		this.tip.textContent = this.value;
+
+		let range = this.max - this.min;
+		let f = Math.pow((this.value - this.min) / range, 1 / this.pow);
+		let p = Math.round(f * 100);
+		this.pos.style.width = p + '%';
+		this.tip.style.left = p + '%';
+
+		return true;
+	}
+}
+
+
+// -----------------------------------------------------------------------------
+// Modals
+
+class Modal extends HTMLComponent {
+	constructor(title, description, content) {
+		super();
+		this.element = h('div', {class: 'modal_background', onclick: ev => this.onBackgroundClick(ev)},
+			h('div', {class: 'modal'},
+				h('div', {class: 'title', text: title}),
+				h('p', {class: 'description', text: description}),
+				content
+			)
+		);
+		
+		document.body.appendChild(this.element);
+
+		this.boundOnKeyDown = this.onKeyDown.bind(this);
+		document.body.addEventListener('keydown', this.boundOnKeyDown, true);
+	}
+
+	onKeyDown(ev) {
+		if (!ev.ctrlKey && !ev.shiftKey && !ev.metaKey) {
+			ev.preventDefault();
+			ev.stopPropagation();
+		}
+		if (ev.key === 'Escape') {
+			this.dismiss();
+		}
+	}
+
+	onBackgroundClick(ev) {
+		if (ev.target === this.element) {
+			this.dismiss();
+		}
+	}
+
+	dismiss() {
+		this.element.remove();
+		document.body.removeEventListener('keydown', this.boundOnKeyDown, true);
+	}
+}
+
+class ConfirmModal extends Modal {
+	constructor(title, description, callback, confirmText = 'ok', cancelText = 'cancel') {
+		super(title, description, h('div', {class: 'buttons'}, 
+			h('button', {text: cancelText, onclick: ev => {this.dismiss(); callback(false)}}),
+			h('button', {text: confirmText, onclick: ev => {this.dismiss(); callback(true)}})
+		));
+	}
+}
+
+class ImportModal extends Modal {
+	constructor(title, description, onImport) {
+		super(title, description, h('div', {},
+			h('div', {}, 
+				h('textarea', {class: 'data'})
+			),
+			h('div', {class: 'buttons'}, 
+				h('button', {text: 'Import Text', onclick: ev => this.importText(ev)}),
+				h('button', {text: 'Open File', onclick: ev => this.openFile(ev)})
+			)
+		));
+
+		this.onImport = onImport;
+	}
+
+	onKeyDown(ev) {
+		super.onKeyDown(ev);
+
+		if (ev.key === 'Enter') {
+			this.importText(ev);
+		}
+	}
+
+	openFile(ev) {
+		let fileInput = h('input', {type: 'file', onchange: ev => {
+			let file = event.target.files[0];
+			if (!file) {
+				return;
+			}
+
+			let reader = new FileReader();
+			reader.onload = (ev) => {
+				const fileContent = ev.target.result;
+				this.dismiss();
+				this.onImport(fileContent.trim());
+			};
+			reader.readAsText(file);
+		}});
+
+		fileInput.click();
+	}
+
+	importText(ev) {
+		this.dismiss();
+		let value = this.element.querySelector('textarea').value;
+		this.onImport(value.trim());
+	}
+}
+
+class ExportModal extends Modal {
+	constructor(title, description, types) {
+		super(title, description, h('div', {},
+			types.map(t => h('div', {class: 'export_type'},
+				h('div', {text: t.title}),
+				h('div', {}, 
+					t.inline
+						? h('input', {type: 'text', class: 'data', readonly: 'readonly', value: t.data, onfocus: ev => this.onFocus(ev)})
+						: h('textarea', {class: 'data', readonly: 'readonly', text: t.data, onfocus: ev => this.onFocus(ev)})
+				),
+				h('div', {class: 'buttons'}, 
+					t.inline ? null : h('button', {text: 'Download '+t.name, onclick: ev => this.download(t)}),
+				)
+			))
+		));
+	}
+
+	onFocus(ev) {
+		ev.currentTarget.select();
+	}
+
+	download(type) {
+		const blob = new Blob([type.data], {type: type.mine});
+		const url = URL.createObjectURL(blob);
+
+		const a = h('a', {href: url, download: type.name});
+		a.style.display = 'none';
+
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+
+		URL.revokeObjectURL(url);
+		this.dismiss();
+	}
+}
+
+// -----------------------------------------------------------------------------
+// App
+
+class SynthApp {
+	ctx = null;
+	synth = null;
+
+	piano = null;
+	numTracks = 8;
+	bpm = 128;
+	rowLen = 6014;
+	tracks = [];
+	activeTrack = null;
+	sequencer = null;
+	focused = null;
+
+	indicator = null;
+	playingSources = [];
+	stopableSource = null;
+
+	clipboard = null;
+	playhead = null;
+	history = null;
+
+	defaultBPM = 120;
+
+	constructor(parent, audioContext, synth) {
+		this.ctx = audioContext;
+		this.synth = synth;
+		this.history = new History(100, 500, () => this.getJson(), (data) => this.setJson(data));
+		this.log = new OutputLog();
+		this.piano = new Piano(this);
+		this.sequencer = new Sequencer(this, this.numTracks);
+		this.meter = new Meter(this);
+
+		for (let i = 0; i < this.numTracks; i++) {
+			this.tracks.push(new Track(this, i));
+		}
+
+		this.element = h('div', {class: 'app'}, 
+			h('div', {class: 'row pane menu'},
+				h('div', {class: 'logo'}, 
+					h('span', {text: 'pl_synth'}),
+					h('span', {class: 'slashes', text: '//'}),
+					h('span', {class: 'indicator', title: 'Play/Stop [Space]', oncreate: el => this.indicator = el, onclick: ev => this.play()},
+						h('span', {class: 'if_stopped', text: '▶'}),
+						h('span', {class: 'if_playing', text: '■'})
+					)
+				),
+				h('div', {}, this.meter),
+				h('div', {},
+					h('span', {text: 'bpm'}),
+					h('input', {
+						class: 'bpm', 
+						type: 'number', 
+						value: this.defaultBPM, 
+						oncreate: el => this.bpmInput = el, 
+						oninput: ev => this.setBPM(ev.currentTarget.value)
+					}),
+				),
+				
+				h('button', {text: 'New', onclick: ev => this.new()}),
+				h('button', {text: 'Load', onclick: ev => this.load()}),
+				h('button', {text: 'Save', onclick: ev => this.save()}),
+				h('button', {text: 'Help?', onclick: ev => this.help()})
+			),
+			h('div', {class: 'tracker'},
+				h('div', {class: 'column'},
+					this.sequencer,
+					this.log
+				),
+				h('div', {class: 'track_container'},
+					this.tracks,
+					this.piano,
+				)
+			)
+		);
+
+		document.body.addEventListener('click', ev => this.resumeAudioContext(), {once: true});
+		document.body.addEventListener('keydown', ev => {if(this.onKeyDown(ev)){ev.preventDefault()}});
+		parent.appendChild(this.element);
+
+		this.newConfirmed();
+	}
+
+	resumeAudioContext() {
+		if (this.ctx.state === 'suspended') {
+			this.ctx.resume();
+			this.log.write('Unlocked WebAudio Ctx');
+		}
+	}
+
+	help() {
+		new Modal('Help', '', h('div', {class: 'help'},
+			h('p', {text: 'Each of the 8 tracks in the sequencer has its own instrument and patterns. Use 1-9 keys in the sequencer to set a pattern to play.'}),
+			h('p', {text: 'Use the piano or keyboard to play notes. If a pattern is selected, the note will be written to the pattern.'}),
+			h('p', {text: 'Keyboard shortcuts:'}),
+			h('div', {text: 'space: play/pause selection'}),
+			h('div', {text: 'tab: switch between sequencer and patterns'}),
+			h('div', {text: 'escape: deselect, interrupt all playing samples'}),
+			h('div', {text: 'ctrl + z: undo'}),
+			h('div', {text: 'ctrl + y: redo'}),
+			h('div', {text: '0-9: set pattern'}),
+			h('div', {text: 'delete, backspace: delete selected pattern index or note'}),
+			h('div', {text: 'arrow keys: move selection'}),
+			h('div', {text: 'shift + arrow keys: expand selection'}),
+			h('div', {text: 'ctrl + arrow keys: move selected'}),
+			h('div', {text: 'ctrl + x: cut selection'}),
+			h('div', {text: 'ctrl + c: copy selection'}),
+			h('div', {text: 'ctrl + v: paste'}),
+			h('div', {text: 'ctrl + a: select all'}),
+		));
+	}
+
+	new() {
+		if (this.history.modified()) {
+			new ConfirmModal('Lose unsaved changes?', '', confirmed => confirmed && this.newConfirmed());
+		}
+		else {
+			this.newConfirmed();
+			document.location.hash = '';
+		}
+	}
+
+	newConfirmed() {
+		this.setJson([5513, []]);
+		this.history.clear();
+		this.history.add('initial');
+		this.history.setSaved();
+	}
+
+	createSaveData(callback) {
+		let data = this.getJson();
+
+		// General filtering and truncation ------------------------------------
+
+		for (let track of data[1/*tracks*/]) {
+			// Filter empty trailing patterns
+			let patterns = track[2/*patterns*/];
+			let patternsLen = patterns.length;
+			for (let i = patternsLen-1; i >= 0; i--) {
+				if (patterns[i].every(p => p === 0)) {
+					patternsLen = i;
+				}
+				else {
+					break;
+				}
+			}
+			patterns.length = patternsLen;
+
+			// Remove trailing zeroes in remaining patterns
+			for (let pattern of patterns) {
+				truncate(pattern);
+			}
+
+			// Remove invalid/empty pattern indices
+			let sequence = track[1/*sequence*/];
+			for (let i = 0; i < sequence.length; i++) {
+				if (sequence[i] > patternsLen) {
+					sequence[i] = 0;
+				}
+			}
+			truncate(sequence);
+
+			// Remove trailing zeroes in instrument
+			truncate(track[0/*instrument*/]);
+		}
+
+		// Filter empty tracks
+		data[1/*tracks*/] = data[1/*tracks*/].filter(track => track[1/*sequence*/].length);
+
+
+		// Valid JSON ----------------------------------------------------------
+		let json = JSON.stringify(data);
+
+
+		// C-Struct ------------------------------------------------------------
+		let cStruct = "pl_synth_song_t song = {\n" +
+		"	.row_len = "+data[0/*row_len*/]+",\n" +
+		"	.num_tracks = "+data[1/*tracks*/].length+",\n" +
+		"	.tracks = (pl_synth_track_t[]){\n" + data[1/*tracks*/].map((track) => { return (
+			"		{\n" +
+			"			.synth = {"+track[0/*instrument*/].join(',')+"},\n" +
+			"			.sequence_len = "+track[1/*sequence*/].length+",\n" +
+			"			.sequence = (uint8_t[]){"+track[1/*sequence*/].join(',')+"},\n" +
+			"			.patterns = (pl_synth_pattern_t[]){\n" + track[2/*patterns*/].map((pattern) => { return (
+			"				{.notes = {" + pattern.join(',') + "}}"
+						);}).join(",\n") +
+			"\n			}\n" +
+			"		}"
+			);}).join(",\n") +
+		"\n	}\n" +
+		"};";
+
+
+		// JS Array with holes -------------------------------------------------
+		// Set all zeroes to `null`, so we can easily string replace them with 
+		// nothing afterwards.
+		let nulledData = undefineZero(data);
+		let nulledJson = JSON.stringify(nulledData);
+		let jsArray = nulledJson.replace(/null/g, '');
+		let jsInst = 'const song = ' + jsArray + ';';
+
+		compress(jsArray, (compressed) => {
+			callback(compressed, jsInst, json, cStruct);
+		});
+	}
+
+	save() {
+		this.history.setSaved();
+
+		this.createSaveData((b64, js, json, struct) => {
+			let url = document.location.href.replace(/#.*/, '') + '#' + b64;
+			let types = [
+				{title: 'Sharable URL', data: url, inline: true},
+				{title: 'JSON Data', mime: 'application/json', name: 'song.json', data: json},
+				{title: 'Minimized JS Array', mime: 'text/javascript', name: 'song.js', data: js},
+				{title: 'C-Struct', mime: 'text/plain', name: 'song.h', data: struct},
+			];
+
+			new ExportModal('Save / Export Song', '', types);
+			document.location.hash = '#' + b64;
+		});
+	}
+
+	load() {
+		this.resumeAudioContext();
+
+		if (this.history.modified()) {
+			new ConfirmModal('Lose unsaved changes?', '', confirmed => confirmed && this.loadConfirmed());
+		}
+		else {
+			this.loadConfirmed();
+		}
+	}
+
+	loadConfirmed() {
+		new ImportModal(
+			'Load / Import Song', 
+			'Song data as pl_synth JS Array, C-Struct or legacy Sonant-X JSON',
+			(text) => this.loadText(text)
+		);
+	}
+
+	loadText(text) {
+		// Try to fiqure out what type of file/text we're loading:
+		// - our own style nested arrays
+		// - legacy sonant-x json
+		// - c struct
+
+		let jsArrayMatch = text.match(/=?\s*(\[\s*\d+.*?\]\s*\]\s*\]\s*\]\s*\])/sm);
+		let jsonMatch = text.match(/({.*"(songLen|endPattern)".*})/sm);
+		let structMatch = text.match(/({.*?}\s*}\s*}\s*}\s*}\s*})/sm);
+
+		let json = null;
+		
+		if (jsArrayMatch) {
+			this.log.write('loading as js array');
+			json = jsArrayMatch[1]
+				.replace(/\/\*.*?\*\//smg, '') // remove multiline comments
+				.replace(/\/\/.*/g, '') // remove single line comments
+				.replace(/,\s*,/smg, ',0,') // replace empty values at ,,
+				.replace(/,\s*,/smg, ',0,') // ... again at ,,
+				.replace(/\[\s*,/smg, '[0,') // ... again at [,
+				.replace(/,\s*\]/smg, ',0]'); // ... again at ,]
+			try {
+				let data = JSON.parse(json);
+				this.setJson(data);
+			}
+			catch(err) {
+				this.log.write('failed to parse: '+err);
+			}
+		}
+
+		else if (jsonMatch) {
+			this.log.write('loading as legacy json');
+			json = jsonMatch[1];
+			try {
+				let legacyData = JSON.parse(json);
+				let tracks = [];
+				for (let legacyTrack of legacyData.songData) {
+					let instrument = [];
+					for (let i = 0; i < Instrument.Indices.length; i++) {
+						let name = Instrument.Indices[i];
+						if (legacyTrack[name] === undefined) {
+							this.log.write('missing instrument property ' + name);
+						}
+						else {
+							instrument[i] = legacyTrack[name];
+						}
+					}
+					let sequence = legacyTrack.p;
+					let patterns = [];
+					for (let legacyPattern of legacyTrack.c) {
+						patterns.push(legacyPattern.n);
+					}
+					tracks.push([instrument, sequence, patterns]);
+				}
+
+				let data = [legacyData.rowLen, tracks];
+				this.setJson(data);
+			}
+			catch(err) {
+				this.log.write('failed to parse: '+err);
+			}
+		}
+
+		else if (structMatch) {
+			this.log.write('loading as c-struct');
+
+			// Transform the struct into json, by deleting everything that is
+			// not a number, a comma or curly braces. Replace curly braces with
+			// brackets and parse.
+			let json = structMatch[1]
+				.replace(/uint8_t/g, '')
+				.replace(/[^0-9,{}]/g, '')
+				.replace(/{/g, '[')
+				.replace(/}/g, ']');
+			try {
+				// We need to reconstruct the data we want by skipping over
+				// num_tracks and sequence_len and unpack the nested patterns
+				let cdata = JSON.parse(json);
+				let tracks = cdata[2/*tracks, skip num_tracks*/].map(ctrack => [
+					ctrack[0/*instrument*/],
+					ctrack[2/*sequence, skip sequence_len*/],
+					ctrack[3/*patterns*/].map(cpattern => cpattern[0])
+				]);
+				let data = [cdata[0], tracks];
+				this.setJson(data);
+			}
+			catch(err) {
+				this.log.write('failed to parse: '+err);
+			}
+		}
+
+		else {
+			this.log.write('unknown file type :(')
+			return;
+		}
+
+		this.history.clear();
+		this.history.add('initial');
+		this.history.setSaved();
+		this.updateFragmentPart();
+	}
+
+	updateFragmentPart() {
+		this.createSaveData((b64, js, json, struct) => {
+			document.location.hash = '#' + b64;
+		});
+	}
+
+	getJson() {
+		let tracksData = [];
+		for (let i = 0; i < this.tracks.length; i++) {
+			tracksData.push(this.tracks[i].getJson());
+		}
+		return [this.rowLen, tracksData];
+	}
+
+	setJson(data) {
+		data = unundefineZero(data);
+		this.rowLen = data[0/*row_len*/];
+		this.bpm = Math.round(60 * 44100 / 4 / this.rowLen);
+		this.bpmInput.value = this.bpm;
+			
+		let tracksData = data[1/*tracks*/];
+		for (let i = 0; i < tracksData.length; i++) {
+			this.tracks[i].setJson(tracksData[i]);
+		}
+		for (let i = tracksData.length; i < this.numTracks; i++) {
+			this.tracks[i].reset();
+		}
+		this.sequencer.setJson(tracksData);
+		this.setActiveTrack(0);
+	}
+
+	setBPM(v) {
+		v = parseInt(v);
+		if (!v) {
+			return;
+		}
+		this.bpm = v;
+		this.rowLen = Math.round(60 * 44100 / 4 / this.bpm);
+		this.history.add('set bpm');
+	}
+
+	setClipboard(scope, data) {
+		this.clipboard = {scope, data};
+	}
+
+	getClipboard(scope) {
+		return this.clipboard?.scope === scope
+			? this.clipboard.data
+			: null;
+	}
+
+	createBufferSource(buffer) {
+		let source = this.ctx.createBufferSource();
+		source.buffer = buffer;
+		source.connect(this.ctx.destination);
+		return source;
+	}
+
+	playBuffer(buffer) {
+		this.resumeAudioContext();
+		let source = this.createBufferSource(buffer);
+		source.start();
+		this.playingSources.push(source);
+		return source;
+	}
+
+	createSongSource(songData, callback) {
+		// filter empty tracks
+		songData[1/*tracks*/] = songData[1/*tracks*/].filter(track => track[1/*sequence*/].length);
+
+		if (songData[1/*tracks*/].length === 0) {
+			this.log.write('selection is empty');
+			return;
+		}
+
+		let buffer = this.synth.song(songData);
+		let source = this.createBufferSource(buffer);
+
+		// Set a timeout to let ctx.currentTime catch up to the load time :/
+		setTimeout(() => callback(source), 1);
+	}
+
+	sourceEnded(source) {
+		// Removed ended source from currently playing sources
+		this.playingSources = this.playingSources.filter(ps => ps !== source);
+		if (this.stopableSource === source) {
+			this.stopableSource = null;
+		}
+	}
+
+	play() {
+		// Simulate the Spacebar keydown event; to be handled in the active
+		// element or globally in SynthApp.
+		document.body.dispatchEvent(new KeyboardEvent('keydown', {'key': ' '}));
+	}
+
+	stop() {
+		// End the playhed and the stopable source
+		this.playhead?.stop()
+		this.playhead = null;
+		this.meter.stop();
+		this.indicator.classList.remove('playing');
+
+		if (this.stopableSource) {
+			if (!this.stopableSource.ended) {
+				this.stopableSource.stop();
+			}
+			this.stopableSource = null;
+		}
+	}
+
+	terminate() {
+		this.stop();
+
+		// Hard stop all playing sources immediately
+		for (let source of this.playingSources) {
+			if (!source.ended) {
+				source.stop();
+			}
+		}
+		this.playingSources = [];
+	}
+
+	softStop() {
+		// Just reset the stopable source, so we can toggle play another one
+		this.playhead?.stop()
+		this.playhead = null;
+		this.meter.stop();
+		this.indicator.classList.remove('playing');
+		this.stopableSource = null;
+	}
+
+	togglePlayPattern(trackIndex, patternIndex, start, end) {
+		if (this.stopableSource) {
+			this.stop();
+		}
+		else {
+			this.playPattern(trackIndex, patternIndex, start, end);
+		}
+	}
+
+	playPattern(trackIndex, patternIndex, start, end) {
+		let track = this.tracks[trackIndex];
+		let pattern = track.patterns[patternIndex];
+		let patternData = pattern.getJson().slice(start, end);
+		let song = [this.rowLen, [
+			[track.instrument.getJson(), [1], [patternData]]
+		]];
+
+		this.playhead?.stop();
+
+		this.log.write('generating pattern');
+		let time = Date.now();
+
+		setTimeout(() => {
+			this.createSongSource(song, (source) => {
+				this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
+
+				source.addEventListener('ended', ev => this.sourceEnded(source));
+				this.playingSources.push(source);
+				this.stopableSource = source;
+
+				this.playhead = new PlayheadPattern(this, source, pattern, start, end, patternData);
+				this.playhead.onPlayedThrough = this.softStop.bind(this);
+				this.indicator.classList.add('playing');
+				this.meter.start(source);
+				source.start();
+			});
+		}, 1);
+	}
+
+	togglePlaySong(sx, ex, sy, ey) {
+		if (this.stopableSource) {
+			this.stop();
+		}
+		else {
+			this.playSong(sx, ex, sy, ey);
+		}
+	}
+
+	playSong(sx, ex, sy, ey) {
+		let song = this.getJson();
+
+		if (sx !== undefined && ex !== undefined && sy !== undefined && ey !== undefined) {
+			for (let track of song[1/*tracks*/]) {
+				track[1/*sequence*/] = track[1/*sequence*/].slice(sy, ey);
+			}
+			song[1/*tracks*/] = song[1/*tracks*/].slice(sx, ex);
+		}
+		else {
+			sx = 0;
+			ex = this.numTracks;
+			sy = 0;
+			ey = this.sequencer.maxLen();
+		}
+
+		this.playhead?.stop();
+			
+		this.log.write('generating song');
+		let time = Date.now();
+
+		setTimeout(() => {
+			this.createSongSource(song, (source) => {
+				this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
+
+				source.addEventListener('ended', ev => this.sourceEnded(source));
+				this.playingSources.push(source);
+				this.stopableSource = source;
+
+				this.playhead = new PlayheadSong(this, source, sx, ex, sy, ey, song);
+				this.playhead.onPlayedThrough = this.softStop.bind(this);
+				this.indicator.classList.add('playing');
+				this.meter.start(source);
+				source.start();
+			});
+		}, 1);
+	}
+
+	setActiveTrack(index) {
+		if (this.activeTrack === this.tracks[index]) {
+			return;
+		}
+
+		this.activeTrack?.deactivate();
+		this.activeTrack = null;
+		if (index === null) {
+			return;
+		}
+		this.activeTrack = this.tracks[index];
+		this.activeTrack.activate();
+	}
+
+	setFocus(p) {
+		if (p === this.focused) {
+			return;
+		}
+		this.focused?.element.classList.remove('focus');
+		this.focused = null;
+		if (p === null) {
+			return;
+		}
+		this.focused = p;
+		this.focused.element.classList.add('focus');
+	}
+
+	onKeyDown(ev) {
+		this.resumeAudioContext();
+
+		let tag = event.target.tagName;
+		if (tag == 'INPUT' || tag == 'TEXTAREA') {
+			return false;
+		}
+		else if (this.focused?.onKeyDown(ev)) {
+			return true;
+		}
+
+		// Handle global keys
+		else if (ev.key === ' ') {
+			this.togglePlaySong();
+			return true;
+		}
+		else if (ev.key === 'Tab') {
+			this.setFocus(this.sequencer);
+			return true;
+		}
+		else if (ev.key === 'Escape') {
+			this.terminate();
+		}
+		else if (ev.ctrlKey && ev.key === 'z') {
+			let description = this.history.undo();
+			if (description) {
+				this.log.write('undo ' + description);
+			}
+			else {
+				this.log.write('nothing to undo');
+			}
+		}
+		else if (ev.ctrlKey && ev.key === 'y') {
+			let description = this.history.redo();
+			if (description) {
+				this.log.write('redo ' + description);
+			}
+			else {
+				this.log.write('nothing to redo');
+			}
+		}
+		
+		// Unhandled here. Let's see if the piano wants to handle this key.
+		else if (this.piano.onKeyDown(ev)) {
+			return true;
+		}
+
+		return false;
+	}
+}
+
+class Meter extends HTMLComponent {
+	width = 128;
+	height = 24;
+	startTime = 0;
+	app = null;
+	samplesLeft = null;
+	samplesRight = null;
+	softMaxLeft = 0;
+	softMaxRight = 0;
+	softOverflowLeft = 0;
+	softOverflowRight = 0;
+	stopped = true;
+
+	constructor(app) {
+		super();
+		this.app = app;
+		this.element = h('canvas', {class: 'meter', width: 128, height: 24});
+		this.ctx = this.element.getContext('2d');
+	}
+
+	start(audio) {
+		this.samplesLeft = audio.buffer.getChannelData(0);
+		this.samplesRight = audio.buffer.getChannelData(1);
+		this.startTime = app.ctx.currentTime;
+		this.lastTime = this.startTime;
+		this.softMaxLeft = 0;
+		this.softMaxRight = 0;
+		if (this.stopped) {
+			window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
+			this.stopped = false;
+		}
+	}
+
+	onRequestAnimationFrame() {
+		if (this.stopped) {
+			return;
+		}
+		let time = this.app.ctx.currentTime - this.startTime;
+		this.update(time);
+		window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
+	}
+
+	update(time) {
+		let start = Math.floor(this.lastTime * 44100);
+		let end = Math.floor(time * 44100);
+		let diff = Math.max(0, time - this.lastTime);
+		this.lastTime = time;
+		if (end <= start) {
+			return;
+		}
+
+		let maxLeft = 0;
+		let maxRight = 0;
+		let samplesLeft = this.samplesLeft;
+		let samplesRight = this.samplesRight;
+		for (let i = start; i < end; i++) {
+			maxLeft = Math.max(maxLeft, Math.abs(samplesLeft[i]));
+			maxRight = Math.max(maxRight, Math.abs(samplesRight[i]));
+		}
+
+		let overflow = Math.max(maxLeft, maxRight) > 1;
+		maxLeft = Math.sqrt(maxLeft);
+		maxRight = Math.sqrt(maxRight);
+
+		this.softMaxLeft = Math.min(1, Math.max(this.softMaxLeft - diff * 2, maxLeft));
+		this.softMaxRight = Math.min(1, Math.max(this.softMaxRight - diff * 2, maxRight));
+		this.softOverflowLeft = maxLeft > 1 ? 0.5 : this.softOverflowLeft - diff * 2;
+		this.softOverflowRight = maxRight > 1 ? 0.5 : this.softOverflowRight - diff * 2;
+
+		this.ctx.clearRect(0, 0, this.width, this.height);
+		this.ctx.fillStyle = maxLeft > 1 ? '#FF971B' : '#fff';
+		this.ctx.fillRect(0, 2, maxLeft * this.width, 8);
+		this.ctx.fillStyle = maxRight > 1 ? '#FF971B' : '#fff';
+		this.ctx.fillRect(0, 14, maxRight * this.width, 8);
+
+		this.ctx.fillStyle = this.softOverflowLeft > 0 ? '#FF971B' : '#fff';
+		this.ctx.fillRect(this.softMaxLeft * this.width, 2, 2, 8);
+		this.ctx.fillStyle = this.softOverflowRight > 0 ? '#FF971B' : '#fff';
+		this.ctx.fillRect(this.softMaxRight * this.width, 14, 2, 8);
+	}
+
+	playedThrough() {
+		this.stop();
+	}
+
+	stop() {
+		this.ctx.clearRect(0, 0, this.width, this.height);
+		this.softMaxLeft = 0;
+		this.softMaxRight = 0;
+		this.softOverflowLeft = 0;
+		this.softOverflowRight = 0;
+		this.stopped = true;
+		this.left = null;
+		this.right = null;
+	}
+}
+
+class Playhead {
+	startTime = 0;
+	app = null;
+	audio = null;
+	onPlayedThrough = null;
+
+	constructor(app, audio) {
+		this.app = app;
+		this.audio = audio;
+		this.startTime = app.ctx.currentTime;
+		window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
+	}
+
+	onRequestAnimationFrame() {
+		if (this.stopped) {
+			return;
+		}
+		let time = this.app.ctx.currentTime - this.startTime;
+		let row = Math.floor(time * 44100 / this.app.rowLen);
+		this.update(row);
+		window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
+	}
+
+	update(row) {}
+
+	playedThrough() {
+		if (this.onPlayedThrough) {
+			this.onPlayedThrough(this);
+		}
+		this.stop();
+	}
+
+	stop() {
+		this.stopped = true;
+	}
+}
+
+class PlayheadSong extends Playhead {
+	activePatterns = [];
+	songData = null;
+	sequenceLen = 0;
+	sx = 0;
+	ex = 0;
+	sy = 0;
+	ey = 0;
+	lastY = -1;
+
+	constructor(app, audio, sx, ex, sy, ey, songData) {
+		super(app, audio);
+		this.songData = songData;
+		this.sx = sx;
+		this.ex = ex;
+		this.sy = sy;
+		this.ey = ey;
+	}
+
+	resetActivePatterns() {
+		for (let pattern of this.activePatterns) {
+			pattern.setPlayhead(null);
+		}
+		this.activePatterns = [];
+	}
+
+	update(row) {
+		let y = Math.floor(row / 32);
+		if (y + this.sy >= this.ey) {
+			this.playedThrough();
+			return;
+		}
+
+		this.app.sequencer.setPlayhead(this.sx, this.ex, y + this.sy);
+
+		// Changed sequence index, find active patterns
+		if (this.lastY !== y) {
+			this.lastY = y;
+			this.resetActivePatterns();
+
+			for (let i = 0; i < this.songData[1/*tracks*/].length; i++) {
+				let trackData = this.songData[1/*tracks*/][i];
+				let sequenceData = trackData[1/*sequence*/];
+				let patternIndex = sequenceData[y];
+				if (patternIndex) {
+					let pattern = this.app.tracks[i + this.sx].patterns[patternIndex-1];
+					if (pattern) {
+						this.activePatterns.push(pattern);
+					}
+				}
+			}
+		}
+
+		let patternRow = Math.floor(row) % 32;
+
+		// Set playhead in active patterns
+		for (let pattern of this.activePatterns) {
+			pattern.setPlayhead(patternRow);
+		}
+
+		// Set piano
+		for (let i = 0; i < this.songData[1/*tracks*/].length; i++) {
+			let trackData = this.songData[1/*tracks*/][i];
+			let sequenceData = trackData[1/*sequence*/];
+			let patternIndex = sequenceData[y];
+			if (patternIndex) {
+				let patternData = trackData[2/*patterns*/][patternIndex-1];
+				if (patternData) {
+					let note = patternData[patternRow];
+					if (note) {
+						this.app.piano.highlightNote(note);
+					}
+				}
+			}
+		}
+	}
+
+	stop() {
+		super.stop();
+		this.resetActivePatterns();
+		this.app.sequencer.setPlayhead(null);
+	}
+}
+
+class PlayheadPattern extends Playhead {
+	pattern = null;
+	patternData = null;
+	start = 0;
+	end = 0;
+
+	constructor(app, audio, pattern, start, end, patternData) {
+		super(app, audio);
+		this.pattern = pattern;
+		this.start = start;
+		this.end = end;
+		this.patternData = patternData;
+	}
+
+	update(row) {
+		if (row + this.start >= this.end) {
+			this.playedThrough();
+			return;
+		}
+		
+		let changed = this.pattern.setPlayhead(row + this.start)
+		if (changed) {
+			let note = this.patternData[row];
+			if (note) {
+				this.app.piano.highlightNote(note);
+			}
+		}
+	}
+
+	stop() {
+		super.stop()
+		this.pattern.setPlayhead(null);
+	}
+}
+
+
+class History {
+	levels = 100;
+	timeout = 500;
+	stack = [];
+	pos = 0;
+	save = 0;
+	stateCallback = null;
+	restoreCallback = null;
+	timeoutId = 0;
+	currentAction = null;
+
+	constructor(levels, timeout, stateCallback, restoreCallback) {
+		this.levels = levels;
+		this.timeout = timeout;
+		this.stateCallback = stateCallback;
+		this.restoreCallback = restoreCallback;
+	}
+
+	clear() {
+		clearTimeout(this.timeoutId);
+		this.currentAction = null;
+		this.stack.length = 0;
+		this.save = 0;
+	}
+
+	modified() {
+		return (
+			this.save === -1 ||
+			this.stack.length - this.pos !== this.save
+		);
+	}
+
+	setSaved() {
+		if (this.currentAction) {
+			this.commit();
+		}
+		this.save = this.stack.length - this.pos;
+	}
+
+	add(description) {
+		if (this.currentAction !== description) {
+			this.commit();
+		}
+		this.currentAction = description;
+		clearTimeout(this.timeoutId);
+		this.timeoutId = setTimeout(this.commit.bind(this), this.timeout);
+	}
+
+	commit() {
+		if (!this.currentAction) {
+			return;
+		}
+
+		if (this.pos) {
+			this.stack.splice(this.stack.length - this.pos, this.pos);
+			if (this.stack.length < this.save) {
+				this.save = -1;
+			}
+			this.pos = 0;
+		}
+
+		this.stack.push({data: this.stateCallback(), description: this.currentAction});
+		if (this.stack.length > this.levels) {
+			this.stack.unshift();
+		}
+		this.currentAction = null;
+	}
+
+	undo() {
+		let prev = this.stack[this.stack.length - this.pos - 1];
+		let action = this.stack[this.stack.length - this.pos - 2];
+		if (!action) {
+			return null;
+		}
+		this.pos++;
+		this.restoreCallback(action.data);
+		return prev.description;
+	}
+
+	redo() {
+		if (this.pos === 0) {
+			return null;
+		}
+		
+		let action = this.stack[this.stack.length - this.pos];
+		if (!action) {
+			return null;
+		}
+		this.pos--;
+		this.restoreCallback(action.data);
+		return action.description;
+	}
+}
+
+class OutputLog extends HTMLComponent {
+	maxLines = 100;
+	lines = 0;
+	constructor() {
+		super();
+		this.element = h('div', {class: 'pane log'},
+			h('div', {class: 'head', text: 'Log'}),
+			h('div', {class: 'content'}, 
+				h('div', {class: 'lines', oncreate: el => this.linesContainer = el})
+			)
+		);
+	}
+
+	write(text) {
+		let line = h('div', {class: 'line'},
+			h('span', {class: 'line_start', text: '›'}),
+			h('span', {text: text})
+		);
+		this.linesContainer.prepend(line);
+		this.lines++;
+
+		if (this.lines > this.maxLines) {
+			this.linesContainer.lastChild.remove();
+		}
+	}
+}
+
+
+class DataGrid extends HTMLComponent {
+	width = 0;
+	height = 0;
+	data = [];
+
+	// start index for data in the table (sans index)
+	dy = 0; 
+	dx = 1;
+	
+	playheadPos = null;
+
+	selection = {
+		anchor: {x: 0, y: 0},
+		start: {x: 0, y: 0},
+		end:  {x: 0, y: 0},
+		selecting: false
+	};
+
+	onSelect = null;
+
+	valueToText = v => v.toString();
+
+	constructor(width, height, hasHeader = false, valueToText = null) {
+		super();
+		this.width = width;
+		this.dy = hasHeader ? 1 : 0;
+
+		if (valueToText) {
+			this.valueToText = valueToText;
+		}
+
+		this.element = h('table', {
+			onmousedown: ev => this.onMouseDown(ev), 
+			onmousemove: ev => this.onMouseMove(ev)
+		},
+			repeat(this.dy, () =>
+				h('tr', {}, 
+					h('td', {}),
+					repeat(this.width, i => 
+						h('td', {class: 'vidx', text: i + 1})
+					)
+				)
+			)
+		);
+
+		for (let i = 0; i < this.width; i++) {
+			this.data[i] = [];
+		}
+		for (let i = 0; i < height; i++) {
+			this.addRow();
+		}
+	}
+
+	reset() {
+		for (let x = 0; x < this.width; x++) {
+			for (let y = 0; y < this.height; y++) {
+				this.setAtPosition(x, y, 0);
+			}
+		}	
+	}
+
+	addRow() {
+		this.element.appendChild(
+			h('tr', {},
+				repeat(this.dx, () => h('td', {class: 'idx', text: this.height+1})),
+				repeat(this.width, () => h('td', {class: 'input'}))
+			)
+		);
+		for (let column of this.data) {
+			column.push(0);
+		}
+		this.height++;
+	}
+
+	removeRow() {
+		if (this.height <= this.dy) {
+			return;
+		}
+
+		this.element.rows[this.element.rows.length-1].remove();
+		for (let column of this.data) {
+			column.pop();
+		}
+		this.height--;
+	}
+
+	setRows(rows) {
+		while (this.height > rows) {
+			this.removeRow();
+		}
+		while (this.height < rows) {
+			this.addRow();
+		}
+	}
+
+	onMouseDown(event) {
+		let row = event.target.closest('tr');
+		let col = event.target.closest('td');
+		if (!row || !col) {
+			return;
+		}
+
+		let x = Array.from(row.cells).indexOf(col);
+		let y = Array.from(this.element.rows).indexOf(row);
+
+		this.selection.selecting = true;
+		this.selection.anchor.x = x;
+		this.selection.anchor.y = y;
+		this.select(x, x, y, y);
+
+		document.addEventListener('mouseup', () => this.selection.selecting = false, {once: true});
+	}
+
+	onMouseMove(event) {
+		if (!this.selection.selecting) {
+			return;
+		}
+
+		let row = event.target.closest('tr');
+		let col = event.target.closest('td');
+		if (!row || !col) {
+			return;
+		}
+
+		let y = Array.from(this.element.rows).indexOf(row);
+		let x = Array.from(row.cells).indexOf(col);
+	 	this.select(this.selection.anchor.x, x, this.selection.anchor.y, y);
+	}
+
+	hasMultiSelection() {
+		return !(
+			this.selection.start.x === this.selection.end.x &&
+			this.selection.start.y === this.selection.end.y
+		);
+	}
+
+	clearSelection() {
+		let active = this.element.querySelectorAll('.active');
+		for (let i = 0; i < active.length; i++) {
+			active[i].classList.remove('active');
+		}
+	}
+
+	select(sx, ex, sy, ey) {
+		this.clearSelection();
+
+		this.selection.start.x = Math.min(sx, ex);
+		this.selection.end.x = Math.max(sx, ex);
+		this.selection.start.y = Math.min(sy, ey);
+		this.selection.end.y = Math.max(sy, ey);
+
+		if (this.selection.start.x < this.dx && this.selection.start.y < this.dy) {
+			this.selection.end.x = 0;
+			this.selection.end.y = 0;
+		}
+		else if (this.selection.start.y < this.dy) {
+			this.selection.start.y = 0;
+			this.selection.end.y = this.height - 1 + this.dy;
+		}
+		else if (this.selection.start.x < this.dx) {
+			this.selection.start.x = 0;
+			this.selection.end.x = this.width - 1 + this.dx;
+		}
+
+		sx = Math.max(this.selection.start.x, this.dx);
+		sy = Math.max(this.selection.start.y, this.dy);
+
+		for (let y = sy; y <= this.selection.end.y; y++) {
+			let row = this.element.rows[y];
+			row.cells[0].classList.add('active');
+
+			for (let x = sx; x <= this.selection.end.x; x++) {
+				for (let h = 0; h < this.dy; h++) {
+					this.element.rows[h].cells[x].classList.add('active');
+				}
+				row.cells[x].classList.add('active');
+			}
+		}
+
+		let anchor = this.element.rows[this.selection.anchor.y];
+		anchor.scrollIntoView({behavior: 'instant', block: 'nearest'});
+
+		if (this.onSelect) {
+			let sx = Math.max(0, this.selection.start.x - this.dx);
+			let ex = Math.min(this.width, this.selection.end.x + 1 - this.dx);
+			let sy = Math.max(0, this.selection.start.y - this.dy);
+			let ey = Math.min(this.height, this.selection.end.y + 1 - this.dy);
+			this.onSelect(sx, sy, ex - sx, ey - sy)
+		}
+	}
+
+	selectAll() {
+		this.select(this.dx, this.width - 1 + this.dx, this.dy, this.height - 1 + this.dy);
+	}
+
+	selectAnchor() {
+		let a = this.selection.anchor;
+		this.select(a.x, a.x, a.y, a.y);
+	}
+
+	moveSelection(vx, vy) {
+		let x = clamp(this.selection.anchor.x + vx, 0, this.width - 1 + this.dx);
+		let y = clamp(this.selection.anchor.y + vy, 0, this.height - 1 + this.dy);
+
+		this.selection.anchor.x = x;
+		this.selection.anchor.y = y;
+		this.select(this.selection.anchor.x, x, this.selection.anchor.y, y);
+	}
+
+	expandSelection(vx, vy) {
+		let x = this.selection.anchor.x;
+		let y = this.selection.anchor.y;
+
+		if (x >= this.dx) {
+			x = this.selection.start.x === this.selection.anchor.x ? this.selection.end.x : this.selection.start.x;
+		}
+		if (y >= this.dy) {
+			y = this.selection.start.y === this.selection.anchor.y ? this.selection.end.y : this.selection.start.y;
+		}
+
+		x = clamp(x + vx, 0, this.width - 1 + this.dx);
+		y = clamp(y + vy, 0, this.height - 1 + this.dy);
+
+		this.select(this.selection.anchor.x, x, this.selection.anchor.y, y);
+	}
+
+	moveSelected(vx, vy) {
+		let sx = clamp(this.selection.start.x + vx, 0, this.width);
+		let ex = clamp(this.selection.end.x + vx, 0, this.width);
+		let sy = clamp(this.selection.start.y + vy, 0, this.height - 1 + this.dy);
+		let ey = clamp(this.selection.end.y + vy, 0, this.height - 1 + this.dy);
+
+		this.selection.anchor.x = clamp(this.selection.anchor.x + vx, 0, this.width - 1);
+		this.selection.anchor.y = clamp(this.selection.anchor.y + vy, 0, this.height - 1);
+
+		let data = this.copySelected();
+		this.setAtSelection(0);
+		this.select(sx, ex, sy, ey);
+		this.pasteAtSelection(data);
+	}
+
+	copySelected() {
+		let sx = Math.max(0, this.selection.start.x - this.dx);
+		let ex = Math.min(this.width, this.selection.end.x + 1 - this.dx);
+		let sy = Math.max(0, this.selection.start.y - this.dy);
+		let ey = Math.min(this.height, this.selection.end.y + 1 - this.dy);
+
+		let copy = [];
+		for (let x = sx; x < ex; x++) {
+			copy.push(this.data[x].slice(sy, ey));
+		}
+		return copy;
+	}
+
+	pasteAtSelection(paste) {
+		if (paste.length === 0) {
+			return;
+		}
+
+		let sx = Math.max(this.dx, this.selection.start.x);
+		let sy = Math.max(this.dy, this.selection.start.y);
+		let ex = Math.min(this.width + this.dx, sx + paste.length);
+		let ey = Math.min(this.height + this.dy, sy + paste[0].length);
+
+		for (let x = sx, dx = 0; x < ex; x++, dx++) {
+			for (let y = sy, dy = 0; y < ey; y++, dy++) {
+				let v = paste[dx][dy];
+				this.setAtPosition(x-this.dx, y-this.dy, v);
+			}
+		}
+	}
+
+	setAtSelection(v) {
+		if (this.selection.start.x < this.dx && this.selection.start.y < this.dy) {
+			return;
+		}
+		let sx = Math.max(this.dx, this.selection.start.x);
+		let sy = Math.max(this.dy, this.selection.start.y);
+		for (let y = sy; y <= this.selection.end.y; y++) {
+			for (let x = sx; x <= this.selection.end.x; x++) {
+				this.setAtPosition(x-this.dx, y-this.dy, v);
+			}
+		}
+	}
+
+	setAtPosition(x, y, v) {
+		this.element.rows[y+this.dy].cells[x+this.dx].textContent = this.valueToText(v);
+		this.data[x][y] = v ?? 0;
+	}
+
+	setPlayhead(sx, ex, y) {
+		let pp = this.playheadPos;
+		if (pp && pp.sx === sx && pp.ex === ex && pp.y === y) {
+			return false;
+		}
+
+		// unhighlight previous
+		if (pp) {
+			for (let x = pp.sx; x < pp.ex; x++) {
+				this.element.rows[pp.y+this.dy].cells[x+this.dx].classList.remove('playhead');
+			}
+			this.playheadPos = null;
+		}
+		
+		// highlight
+		if (sx !== null) {
+			for (let x = sx; x < ex; x++) {
+				this.element.rows[y+this.dy].cells[x+this.dx].classList.add('playhead');
+			}
+			this.playheadPos = {sx, ex, y};
+		}
+		return true;
+	}
+}
+
+
+// -----------------------------------------------------------------------------
+// Sequencer
+
+class Sequencer extends HTMLComponent {
+	app = null;
+	table = null;
+
+	numDefaultRows = 32;
+
+	selection = {
+		anchor: {x: 0, y: 0},
+		start: {x: 0, y: 0},
+		end:  {x: 0, y: 0},
+		selecting: false
+	};
+
+	moveKeys = {
+		ArrowUp:    {x:  0, y: -1},
+		PageUp:     {x:  0, y: -4},
+		ArrowRight: {x:  1, y:  0},
+		ArrowDown:  {x:  0, y:  1},
+		PageDown:   {x:  0, y:  4},
+		ArrowLeft:  {x: -1, y:  0},
+	};
+
+	playhead = null;
+
+	constructor(app, numTracks) {
+		super();
+		this.app = app;
+		this.table = new DataGrid(this.app.numTracks, this.numDefaultRows, true, (v => v ? v : ''));
+		this.table.onSelect = this.onSelect.bind(this);
+
+		this.element = h('div', {class: 'pane sequencer', onmousedown: ev => this.focus()},
+			h('div', {class: 'head', text: 'Sequencer', onclick: ev => this.focusWithReset()},
+				h('span', {}, 
+					h('button', {class: 'small', text: 'rem', title: 'remove row', onclick: ev => this.removeRow()}),
+					h('button', {class: 'small', text: 'add', title: 'add row', onclick: ev => this.addRow()})
+				)
+			),
+			h('div', {class: 'scroll_stretch'}, 
+				this.table
+			)
+		);
+		this.reset();
+	}
+
+	maxLen() {
+		let len = 0;
+		let data = this.table.data;
+		for (let x = 0; x < data.length; x++) {
+			for (let y = len; y < data[x].length; y++) {
+				if (data[x][y]) {
+					len = y + 1;
+				}
+			}
+		}
+		return len;
+	}
+
+	reset() {
+		this.table.reset(this.app.numTracks, this.numDefaultRows);
+	}
+
+	getJson(x) {
+		return truncate(this.table.data[x].slice());
+	}
+
+	setJson(tracks) {
+		this.reset();
+
+		let rows = this.numDefaultRows;
+		for (let td of tracks) {
+			rows = Math.max(rows, td[1/*sequence*/].length);
+		}
+		this.table.setRows(rows);		
+
+		for (let x = 0; x < tracks.length; x++) {
+			let sequence = tracks[x][1/*sequence*/];
+			for (let y = 0; y < sequence.length; y++) {
+				let idx = sequence[y];
+				this.table.setAtPosition(x, y, idx);
+			}
+		}
+	}
+
+	removeRow() {
+		this.table.removeRow();
+		this.app.history.add('remove sequence row');
+	}
+
+	addRow() {
+		this.table.addRow();
+		this.app.history.add('add sequence row');
+	}
+
+	focus() {
+		this.app.setFocus(this);
+	}
+
+	focusWithReset() {
+		this.focus();
+		this.table.clearSelection();
+		this.table.select(0, 0, 0, 0);
+	}
+
+	setPlayhead(sx, ex, y) {
+		return this.table.setPlayhead(sx, ex, y);
+	}
+
+	onSelect(x, y, w, h) {
+		if (w > 0 && h > 0) {
+			this.app.setActiveTrack(x);
+			let pattern = this.table.data[x][y];
+			if (pattern) {
+				this.app.activeTrack?.setActivePattern(pattern - 1);
+			}
+		}
+	}
+
+	setPattern(p) {
+		this.table.setAtSelection(p);
+		if (p) {
+			this.app.activeTrack?.setActivePattern(p - 1);
+		}
+	}
+
+	onKeyDown(ev) {
+		let k1 = '1'.charCodeAt(0);
+		let k9 = '9'.charCodeAt(0);
+		let cc = ev.key.charCodeAt(0);
+
+		if (ev.key === 'Delete' || ev.key === 'Backspace' || ev.key === '0') {
+			this.setPattern(0);
+			this.app.history.add('delete pattern');
+			return true;
+		}
+		else if (cc >= k1 && cc <= k9) {
+			this.setPattern(cc - k1 + 1);
+			this.app.history.add('set pattern');
+			return true;
+		}
+		else if (this.moveKeys[ev.key]) {
+			let dir = this.moveKeys[ev.key];
+
+			if (ev.ctrlKey) {
+				this.table.moveSelected(dir.x, dir.y);
+				this.app.history.add('move pattern');
+			}
+			else if (ev.shiftKey) {
+				this.table.expandSelection(dir.x, dir.y);
+			}
+			else {
+				this.table.moveSelection(dir.x, dir.y);
+			}
+			return true;
+		}
+		else if (ev.key === 'x' && ev.ctrlKey) {
+			this.app.setClipboard('sequence', this.table.copySelected());
+			this.table.setAtSelection(0);
+			this.app.history.add('cut pattern');
+			return true;
+		}
+		else if (ev.key === 'c' && ev.ctrlKey) {
+			this.app.setClipboard('sequence', this.table.copySelected());
+			return true;
+		}
+		else if (ev.key === 'v' && ev.ctrlKey) {
+			let data = this.app.getClipboard('sequence');
+			if (data) {
+				this.table.pasteAtSelection(data);
+				this.app.history.add('paste pattern');
+			}
+			return true;
+		}
+		else if (ev.key === 'a' && ev.ctrlKey) {
+			this.table.selectAll();
+			return true;
+		}
+		else if (ev.key === 'Escape') {
+			if (this.table.hasMultiSelection()) {
+				this.table.selectAnchor();
+			}
+			else {
+				this.table.select(0, 0, 0, 0);
+				this.app.setFocus(null);
+			}
+			return true;
+		}
+		else if (ev.key === 'Tab') {
+			if (
+				this.app.activeTrack &&
+				!this.app.activeTrack?.activePattern
+			) {
+				this.app.activeTrack.setActivePattern(0);
+			}
+			this.app.activeTrack?.activePattern.focus();	
+			return true;
+		}
+		else if (ev.key === ' ') {
+			let s = this.table.selection;
+
+			// everything
+			if (s.start.x === 0 && s.start.y === 0) {
+				this.app.togglePlaySong();
+			}
+
+			// start all tracks at current row
+			else if (
+				s.start.x === 0 ||
+				(
+					s.start.x === s.end.x &&
+					s.start.y === s.end.y
+				) 
+			) {
+				let sy = Math.max(1, s.start.y);
+				this.app.togglePlaySong(0, this.app.numTracks, sy - 1, this.maxLen());
+			}
+
+			// only the selection
+			else {
+				let sx = Math.max(1, s.start.x);
+				let sy = Math.max(1, s.start.y);
+				this.app.togglePlaySong(sx - 1, s.end.x, sy - 1, Math.min(s.end.y, this.maxLen()));
+			}
+			return true;
+		}
+		
+		return false;
+	}
+}
+
+
+
+// -----------------------------------------------------------------------------
+// Track
+
+class Track extends HTMLComponent{
+	app = null;
+	instrument = null;
+	index = 0;
+	patterns = [];
+	activePattern = null;
+	numDefaultPatterns = 4;
+
+	constructor(app, index) {
+		super();
+		this.app = app;
+		this.instrument = new Instrument(this);
+		this.index = index;
+
+		for (let i = 0; i < this.numDefaultPatterns; i++) {
+			this.patterns.push(new Pattern(this, i));
+		}
+
+		this.element = h('div', {class: 'row track'},
+			h('div', {class: 'head', text: 'Track ' + (index+1)},
+				h('span', {}, 
+					h('button', {class: 'small', text: 'rem', title: 'remove pattern', onclick: ev => this.onRemovePattern()}),
+					h('button', {class: 'small', text: 'add', title: 'add pattern', onclick: ev => this.onAddPattern()})
+				)
+			),
+			h('div', {class: 'patterns', oncreate: el => this.patternsElement = el}, 
+				this.patterns
+			),
+			this.instrument.element
+		);
+		this.deactivate();
+	}
+
+	reset() {
+		this.instrument.reset();
+		while (this.patterns.length > this.numDefaultPatterns) {
+			this.removePattern();
+		}
+		for (let p of this.patterns) {
+			p.reset();
+		}
+	}
+
+	getJson() {
+		let patternsData = [];
+		for (let pattern of this.patterns) {
+			patternsData.push(pattern.getJson());
+		}
+		return [
+			this.instrument.getJson(),
+			this.app.sequencer.getJson(this.index),
+			patternsData
+		];
+	}
+
+	setJson(track) {
+		this.reset();
+		this.instrument.setJson(track[0/*instrument*/]);
+		let patterns = track[2/*patterns*/];
+
+		while (this.patterns.length < patterns.length) {
+			this.addPattern();
+		}
+
+		for (let i = 0; i < patterns.length; i++) {
+			this.patterns[i].setJson(patterns[i]);
+		}
+	}
+
+	activate() {
+		this.element.style.display = 'flex';
+		this.instrument.activate();
+	}
+
+	deactivate() {
+		this.element.style.display = 'none';
+	}
+
+	addPattern() {
+		let p = new Pattern(this, this.patterns.length);
+		this.patternsElement.appendChild(p.element);
+		this.patterns.push(p);
+		return true;
+	}
+
+	removePattern() {
+		if (this.patterns.length <= 1)  {
+			return false;
+		}
+		this.patterns.pop().element.remove();
+		return true;
+	}
+
+	onAddPattern() {
+		if (this.addPattern()) {
+			this.app.history.add('add pattern');
+		}
+	}
+
+	onRemovePattern() {
+		if (this.removePattern()) {
+			this.app.history.add('remove pattern');
+		}
+	}
+
+	setActivePattern(index)  {
+		if (this.activePattern === this.patterns[index]) {
+			return;
+		}
+		this.activePattern?.deactivate();
+		this.activePattern = null;
+		if (index === null || index >= this.patterns.length) {
+			return;
+		}
+
+		this.activePattern = this.patterns[index];
+		this.activePattern.activate();
+	}
+}
+
+
+// -----------------------------------------------------------------------------
+// Pattern
+
+class Pattern extends HTMLComponent {
+	numRows = 32;
+	track = null;
+	index = 0;
+	table = null;
+	element = null;
+
+	moveKeys = {
+		ArrowUp:   -1,
+		PageUp:    -4,
+		ArrowDown:  1,
+		PageDown:   4,
+	};
+	noteNames = ['C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-'];
+	selection = {anchor: null, start: null, end: null, selecting: false};
+
+	playhead = null;
+
+	constructor(track, index) {
+		super();
+		this.track = track;
+		this.index = index;
+
+		this.table = new DataGrid(1, this.numRows, false, (v => this.getNoteName(v)));
+
+		this.element = h('div', {class: 'pane pattern'}, 
+			h('div', {class: 'head', text: 'Pattern ' + (this.index + 1), onclick: ev => this.focusWithReset() }),
+			h('div', {class: 'scroll_stretch', onmousedown: ev => this.focus() }, 
+				this.table
+			)
+		);
+	}
+
+	reset() {
+		this.table.reset();
+	}
+
+	getJson() {
+		return this.table.data[0].slice();
+	}
+
+	setJson(pattern) {
+		this.reset();
+
+		for (let y = 0; y < pattern.length; y++) {
+			let note = pattern[y];
+			if (note) {
+				this.table.setAtPosition(0, y, note);
+			}
+		}
+	}
+
+	activate() {
+		this.element.classList.add('active');
+		this.table.selectAnchor();
+	}
+
+	deactivate() {
+		this.element.classList.remove('active');
+		this.table.clearSelection();
+	}
+
+	focusWithReset() {
+		this.focus();
+		this.table.clearSelection();
+		this.table.select(1, 1, 0, 0);
+	}
+
+	focus() {
+		this.track.setActivePattern(this.index);
+		this.track.app.setFocus(this);
+	}
+
+	setPlayhead(row) {
+		if (row === null) {
+			return this.table.setPlayhead(null);
+		}
+		else {
+			return this.table.setPlayhead(0, 1, row)
+		}
+	}
+
+	onKeyDown(ev) {
+		if (ev.key === 'Delete' || ev.key === 'Backspace') {
+			this.table.setAtSelection(0);
+			this.track.app.history.add('delete note')
+			return true;
+		}
+		else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+			let dir = ev.key === 'ArrowLeft' ? -1 : 1;
+
+			let copied = null;
+			if (ev.ctrlKey) {
+				copied = this.table.copySelected();
+			}
+
+			let index = clamp(this.index + dir, 0, this.track.patterns.length-1);
+			let s = this.table.selection;
+			this.track.setActivePattern(index);
+			this.track.activePattern.focus();
+			this.track.activePattern.table.selection.anchor.y = s.anchor.y;
+			this.track.activePattern.table.select(0, 1, s.start.y, s.end.y);
+
+			if (ev.ctrlKey) {
+				this.track.activePattern.table.pasteAtSelection(copied);
+				this.track.app.history.add('copy note');
+			}
+			return true;
+		}
+		else if (ev.key === 'Tab') {
+			this.track.app.setFocus(this.track.app.sequencer);
+			return true;
+		}
+		else if (this.moveKeys[ev.key]) {
+			let dir = this.moveKeys[ev.key];
+
+			if (ev.ctrlKey) {
+				this.table.moveSelected(0, dir);
+				this.track.app.history.add('move note');
+			}
+			else if (ev.shiftKey) {
+				this.table.expandSelection(0, dir);
+			}
+			else {
+				this.table.moveSelection(0, dir);
+			}
+			return true;
+		}
+		else if (ev.key === 'a' && ev.ctrlKey) {
+			this.table.selectAll();
+			return true;
+		}
+		else if (ev.key === 'x' && ev.ctrlKey) {
+			this.track.app.setClipboard('pattern', this.table.copySelected());
+			this.table.setAtSelection(0);
+			this.track.app.history.add('cut note');
+			return true;
+		}
+		else if (ev.key === 'c' && ev.ctrlKey) {
+			this.track.app.setClipboard('pattern', this.table.copySelected());
+			return true;
+		}
+		else if (ev.key === 'v' && ev.ctrlKey) {
+			let data = this.track.app.getClipboard('pattern');
+			if (data) {
+				this.table.pasteAtSelection(data);
+				this.track.app.history.add('paste note');
+			}
+			return true;
+		}
+		else if (ev.key === 'Enter') {
+			this.track.app.sequencer.setPattern(this.index+1);
+			return true;
+		}
+		else if (ev.key === 'Escape') {
+			if (this.table.hasMultiSelection()) {
+				this.table.selectAnchor();
+			}
+			else {
+				this.track.app.setFocus(null);
+			}
+			return true;
+		}
+		else if (ev.key === ' ') {
+			let s = this.table.selection;
+
+			let start = s.start.y;
+			let end = (s.start.y === s.end.y)
+				? this.numRows
+				: s.end.y+1;
+
+			this.track.app.togglePlayPattern(this.track.index, this.index, start, end);
+			return true;
+		}
+	}
+
+	getNoteName(note) {
+		if (note === null || note === 0) {
+			return '';
+		}
+		note -= 87;
+		return this.noteNames[note % 12] + Math.floor(note / 12);
+	}
+
+	setNote(note) {
+		this.table.setAtSelection(note);
+		this.track.app.history.add('set note');
+	}
+};
+
+
+// -----------------------------------------------------------------------------
+// Instrument
+
+class Instrument extends HTMLComponent {
+
+	static Presets = {
+		"Default": [7,,,,192,,7,,,,192,,,200,2000,20000,192],
+		"Softy": [7,,,,192,2,7,,,,201,3,,100,150,13636,191,2,5839,254,6,121,6,147,,1,6,195],
+		"Classic 8-bit": [7,,,,192,1,6,,9,,192,1,,137,2000,4611,192,1,982,89,6,25,6,77,,1,3,69],
+		"Square": [7,,,,255,1,7,,9,,154,1,,197,88,10614,45,,11025,255,2,146,3,47],
+		"Bell": [9,,,,255,,9,,12,,255,,,100,,14545,70,,,240,2,157,3,47],
+		"Base string": [7,,,,255,2,8,,18,,255,2,,100000,56363,100000,199,2,200,254,8,24],
+		"Bass drum 1": [7,,,1,255,,7,,,1,255,,,50,150,4800,200,2,600,254],
+		"Bass drum 2": [7,,,1,255,,7,,,1,255,,,100,,3636,254,2,500,254,,27],
+		"Bass drum 3": [6,,,1,255,,6,,,1,255,,14,50,150,8181,161,2,5900,240,6,66],
+		"Snare 1": [8,,,1,160,,8,,,1,160,,210,50,200,6800,160,4,11025,254,6,32,5,61,,1,4,60],
+		"Snare 2": [8,,,1,221,,8,,,1,210,,255,50,150,15454,229,3,11024,240,6,24,,20,,1,7,64],
+		"Hihat 1": [8,,,1,82,2,8,,,,,,255,100,,9090,232,3,5200,63],
+		"Hihat 2": [8,,,,,,8,,,,,,60,50,419,4607,130,1,10332,120,4,16,5,108,,,5,187],
+		"Smash": [5,,,1,214,,5,,,1,204,,229,50,6363,1818,158,3,7924,240,6,74,4,232,,1,6,231],
+		"Pipe hit": [7,,,,255,3,8,,,,255,,127,22,22,2193,255,3,4067,176,4,12,2,84,,1,3,96],
+		"Wind": [8,,,,,,8,,,,,,255,100000,100000,100000,192,2,2500,16,2,157,1,88,,1,2,51]
+	};
+
+	// Ordering for backwards compatability
+	static Indices = [
+		'osc1_oct', 'osc1_det', 'osc1_detune', 'osc1_xenv', 'osc1_vol', 'osc1_waveform',
+		'osc2_oct', 'osc2_det', 'osc2_detune', 'osc2_xenv', 'osc2_vol', 'osc2_waveform',
+		'noise_fader',
+		'env_attack', 'env_sustain', 'env_release', 'env_master', 'fx_filter',
+		'fx_freq', 'fx_resonance', 'fx_delay_time', 'fx_delay_amt', 'fx_pan_freq', 'fx_pan_amt', 'lfo_osc1_freq',
+		'lfo_fx_freq', 'lfo_freq', 'lfo_amt', 'lfo_waveform'
+	];
+
+	track = null;
+	props = {};
+	noteCache = {};
+	data = [];
+	waveform = null;
+
+	constructor(track) {
+		super();
+
+		this.track = track;
+		this.waveform = new WaveformDisplay(track.app.synth);
+
+		let waves = [
+			{value: 0, text: 'sin', title: 'Sine Wave'},
+			{value: 1, text: 'sq', title: 'Square Wave'},
+			{value: 2, text: 'saw', title: 'Sawtooth'},
+			{value: 3, text: 'tri', title: 'Triangle Wave'},
+		];
+		let filters = [
+			{value: 0, text: 'off', title: 'No Filter'},
+			{value: 2, text: 'low', title: 'Low Pass'},
+			{value: 1, text: 'high', title: 'High Pass'},
+			{value: 3, text: 'band', title: 'Band Pass'},
+			{value: 4, text: 'notch', title: 'Notch'},
+		];
+
+		this.props = {
+			osc1_waveform: new RadioSelect(waves,   {                     onchange: v => this.onChange('osc1_waveform', v)}),
+			osc1_vol:      new RangeSlider('Vol',   {min: 0, max:    255, onchange: v => this.onChange('osc1_vol', v), title: 'Volume'}),
+			osc1_oct:      new RangeSlider('Oct',   {min: 0, max:     16, onchange: v => this.onChange('osc1_oct', v), title: 'Octave'}),
+			osc1_det:      new RangeSlider('Semi',  {min: 0, max:     11, onchange: v => this.onChange('osc1_det', v), title: 'Semitune'}),
+			osc1_detune:   new RangeSlider('Det',   {min: 0, max:    255, onchange: v => this.onChange('osc1_detune', v), title: 'Detune'}),
+			osc1_xenv:     new Checkbox('Xenv',     {                     onchange: v => this.onChange('osc1_xenv', v), title: 'Envelope modulates frequency'}),
+
+			osc2_waveform: new RadioSelect(waves,   {                     onchange: v => this.onChange('osc2_waveform', v)}),
+			osc2_vol:      new RangeSlider('Vol',   {min: 0, max:    255, onchange: v => this.onChange('osc2_vol', v), title: 'Volume'}),
+			osc2_oct:      new RangeSlider('Oct',   {min: 0, max:     16, onchange: v => this.onChange('osc2_oct', v), title: 'Octave'}),
+			osc2_det:      new RangeSlider('Semi',  {min: 0, max:     11, onchange: v => this.onChange('osc2_det', v), title: 'Semitune'}),
+			osc2_detune:   new RangeSlider('Det',   {min: 0, max:    255, onchange: v => this.onChange('osc2_detune', v), title: 'Detune'}),
+			osc2_xenv:     new Checkbox('Xenv',     {                     onchange: v => this.onChange('osc2_xenv', v), title: 'Envelope modulates frequency'}),
+
+			env_master:    new RangeSlider('Mast',  {min: 0, max:    255, onchange: v => this.onChange('env_master', v), title: 'Master Volume'}),
+			env_attack:    new RangeSlider('Att',   {min: 0, max: 200000, onchange: v => this.onChange('env_attack', v), pow: 3, title: 'Attack time'}),
+			env_sustain:   new RangeSlider('Sust',  {min: 0, max: 200000, onchange: v => this.onChange('env_sustain', v), pow: 3, title: 'Sustain time'}),
+			env_release:   new RangeSlider('Rel',   {min: 0, max: 200000, onchange: v => this.onChange('env_release', v), pow: 3, title: 'Release time'}),
+
+			fx_filter:     new RadioSelect(filters, {                     onchange: v => this.onChange('fx_filter', v)}),
+			fx_freq:       new RangeSlider('Freq',  {min: 0, max:  11025, onchange: v => this.onChange('fx_freq', v), pow: 3, title: 'Filter frequency'}),
+			fx_resonance:  new RangeSlider('Res',   {min: 0, max:    255, onchange: v => this.onChange('fx_resonance', v), title: 'Filter resonance'}),
+			fx_delay_amt:  new RangeSlider('Delay', {min: 0, max:    248, onchange: v => this.onChange('fx_delay_amt', v), title: 'Delay amount'}),
+			fx_delay_time: new RangeSlider('└Time', {min: 0, max:     16, onchange: v => this.onChange('fx_delay_time', v), title: 'Delay time'}),
+			fx_pan_amt:    new RangeSlider('Pan',   {min: 0, max:    255, onchange: v => this.onChange('fx_pan_amt', v), title: 'Pan amount'}),
+			fx_pan_freq:   new RangeSlider('└Freq', {min: 0, max:     16, onchange: v => this.onChange('fx_pan_freq', v), title: 'Pan frequency'}),
+
+			lfo_waveform:  new RadioSelect(waves,   {                     onchange: v => this.onChange('lfo_waveform', v)}),
+			lfo_freq:      new RangeSlider('Freq',  {min: 0, max:     16, onchange: v => this.onChange('lfo_freq', v)}),
+			lfo_amt:       new RangeSlider('Amt',   {min: 0, max:    255, onchange: v => this.onChange('lfo_amt', v)}),
+			lfo_fx_freq:   new Checkbox('FXFreq',   {                     onchange: v => this.onChange('lfo_fx_freq', v), title: 'FX freq. modulation'}),
+			lfo_osc1_freq: new Checkbox('OSC1Freq', {                     onchange: v => this.onChange('lfo_osc1_freq', v), title: 'Osc1 freq. modulation'}),
+
+			noise_fader:   new RangeSlider('Noise', {min: 0, max:    255, onchange: v => this.onChange('noise_fader', v), title: 'Noise volume'})
+		};
+
+		this.element = h('div', {class: 'pane instrument'},
+			h('div', {class: 'column'},
+				h('div', {class: 'module'},
+					h('div', {class: 'title', text: 'Osc 1'},
+						this.props.osc1_waveform,
+						this.props.osc1_xenv
+					),
+					this.props.osc1_vol,
+					this.props.osc1_oct,
+					this.props.osc1_det,
+					this.props.osc1_detune
+				),
+				h('div', {class: 'module'},
+					h('div', {class: 'title', text: 'Osc 2'},
+						this.props.osc2_waveform,
+						this.props.osc2_xenv
+					),
+					this.props.osc2_vol,
+					this.props.osc2_oct,
+					this.props.osc2_det,
+					this.props.osc2_detune
+				)
+			),
+
+			h('div', {class: 'column'},
+				h('div', {class: 'module'},
+					h('div', {class: 'title', text: 'Envelope'}),
+					this.props.env_master,
+					this.props.env_attack,
+					this.props.env_sustain,
+					this.props.env_release
+				),
+				h('div', {class: 'module'},
+					h('div', {class: 'title', text: 'LFO'}, 
+						this.props.lfo_waveform
+					),
+					this.props.lfo_amt,
+					this.props.lfo_freq,
+					h('div', {class: 'options'},
+						this.props.lfo_fx_freq,
+						this.props.lfo_osc1_freq
+					)
+				)
+			),
+
+			h('div', {class: 'column'},
+				h('div', {class: 'module'},
+					h('div', {class: 'title', text: 'FX'}, this.props.fx_filter),
+					this.props.fx_freq,
+					this.props.fx_resonance,
+					this.props.fx_delay_amt,
+					this.props.fx_delay_time,
+					this.props.fx_pan_amt,
+					this.props.fx_pan_freq,
+					this.props.noise_fader
+				),
+				h('div', {class: 'module'},
+					
+						h('select', {onchange: ev => this.loadPreset(ev) }, 
+							h('option', {value: 'select', text: 'Load Preset'}),
+							Object.keys(Instrument.Presets).map((name) =>
+								h('option', {value: name, text: name})
+							)
+						),
+						h('button', {text: 'load', onclick: ev => this.load()}),
+						h('button', {text: 'save', onclick: ev => this.save()})
+				)
+			),
+			this.waveform
+		);
+
+		for (let i = 0; i < Instrument.Indices.length; i++) {
+			let name = Instrument.Indices[i];
+			let prop = this.props[name];
+			this.data[i] = prop.value;
+		}
+
+		window.addEventListener("resize", ev => this.waveform.renderIfDirty());
+	}
+
+	load() {
+		new ImportModal(
+			'Load / Import Instrument', 
+			'Instrument data as pl_synth JS Array, C-Struct or legacy Sonant-X JSON',
+			(text) => this.loadText(text)
+		);
+	}
+
+	loadText(text) {
+		// Try to fiqure out what type of file/text we're loading:
+		// - our own style nested arrays
+		// - legacy sonant-x json
+		// - c struct
+
+		let jsArrayMatch = text.match(/=?\s*(\[\s*[\d+,].*?\])/sm);
+		let jsonMatch = text.match(/({\s*"osc1_oct".*?})/sm);
+		let structMatch = text.match(/({\s*\d.*?})/sm);
+		
+		if (jsArrayMatch) {
+			this.track.app.log.write('loading as JS array');
+			let json = jsArrayMatch[1]
+				.replace(/,\s*,/smg, ',0,') // replace empty values at ,,
+				.replace(/,\s*,/smg, ',0,') // ... again at ,,
+				.replace(/\[\s*,/smg, '[0,') // ... again at [,
+				.replace(/,\s*\]/smg, ',0]'); // ... again at ,]
+			try {
+				let data = JSON.parse(json);
+				this.setJson(data);
+			}
+			catch(err) {
+				this.track.app.log.write('failed to parse: '+err);
+			}
+		}
+
+		else if (jsonMatch) {
+			this.track.app.log.write('loading as legacy JSON');
+			let json = jsonMatch[1];
+			try {
+				let legacyData = JSON.parse(json);
+				let instrument = [];
+				for (let i = 0; i < Instrument.Indices.length; i++) {
+					let name = Instrument.Indices[i];
+					if (legacyData[name] === undefined) {
+						this.track.app.log.write('missing instrument property ' + name);
+					}
+					else {
+						instrument[i] = legacyData[name];
+					}
+				}
+				this.setJson(instrument);
+			}
+			catch(err) {
+				this.track.app.log.write('failed to parse: '+err);
+			}
+		}
+
+		else if (structMatch) {
+			this.track.app.log.write('loading as c struct');
+			let json = structMatch[1].replace('{', '[').replace('}', ']');
+			try {
+				let data = JSON.parse(json);
+				this.setJson(data);
+			}
+			catch(err) {
+				this.track.app.log.write('failed to parse: '+err);
+			}
+		}
+
+		else {
+			this.track.app.log.write('unknown file type :(')
+			return;
+		}
+
+		this.track.app.history.add('load instrument');
+	}
+
+	save() {
+		let data = truncate(this.getJson());
+
+		let json = JSON.stringify(data);
+
+		let cStruct = 'pl_synth_sound_t sound = {.synth = {' + data.join(',') + '}, .row_len = '+this.track.app.rowLen+', .note = 147};';
+
+		let nulledData = undefineZero(data);
+		let nulledJson = JSON.stringify(nulledData);
+		let jsArray = nulledJson.replace(/null/g, '');
+		let jsInst = 'const instrument = ' + jsArray + ';';
+
+		let types = [
+			{title: 'JSON Data', mime: 'application/json', name: 'instrument.json', data: json},
+			{title: 'Minimized JS Array', mime: 'text/javascript', name: 'instrument.js', data: jsInst},
+			{title: 'C-Struct', mime: 'text/plain', name: 'instrument.h', data: cStruct},
+		];
+
+		new ExportModal('Save / Export Instrument', '', types);
+	}
+
+	loadPreset(ev) {
+		let name = ev.currentTarget.value;
+		let preset = Instrument.Presets[name];
+		if (!preset) {
+			return;
+		}
+
+		this.setJson(preset);
+		ev.currentTarget.value = 'select';
+		this.track.app.history.add('load preset');
+	}
+
+	activate() {
+		this.waveform.renderIfDirty();
+	}	
+
+	onChange(name, v) {
+		this.noteCache = {};
+		this.data[Instrument.Indices.indexOf(name)] = v;
+		this.waveform.render(this.data);
+		this.track.app.history.add('instrument ' + name);
+	}
+
+	reset() {
+		this.setJson(Instrument.Presets.Default);
+	}
+
+	getJson() {
+		return this.data.slice();
+	}
+
+	setJson(instrumentData) {
+		for (let i = 0; i < Instrument.Indices.length; i++) {
+			let name = Instrument.Indices[i];
+			let prop = this.props[name];
+			prop.set(instrumentData[i] ?? 0);
+			this.data[i] = prop.value;
+		}
+		this.noteCache = {};
+		this.waveform.render(this.data);
+	}
+
+	getNoteBuffer(note) {
+		if (!this.track.app.synth) {
+			return null;
+		}
+
+		if (!this.noteCache[note]) {
+			let len = 
+				this.data[13/*env_attack*/] + 
+				this.data[14/*env_sustain*/] + 
+				this.data[15/*env_release*/];
+			if (!len) {
+				return null;
+			}
+			this.noteCache[note] = this.track.app.synth.sound(this.data, note, this.track.app.rowLen);
+		}
+		return this.noteCache[note];
+	}
+
+	playNote(note) {
+		let buffer = this.getNoteBuffer(note);
+		if (buffer) {
+			this.track.app.playBuffer(buffer);
+		}
+	}
+}
+
+
+// -----------------------------------------------------------------------------
+// WaveformDisplay
+
+class WaveformDisplay extends HTMLComponent {
+	synth = null;
+	instrument = null;
+
+	constructor(synth) {
+		super();
+
+		this.synth = synth;
+		this.canvas = h('canvas',  {class: 'waveform'});
+		this.ctx = this.canvas.getContext('2d');
+		this.element = h('div',  {class: 'preview'}, this.canvas);
+	}
+
+	renderIfDirty() {
+		let cr = this.canvas.parentElement.getBoundingClientRect();
+		let w = cr.width|0;
+		let h = cr.height|0;
+		let sizeChanged = (this.canvas.width !== w || this.canvas.height !== h);
+		if (sizeChanged) {
+			this.canvas.width = w;
+			this.canvas.height = h;
+		}
+
+		if (this.instrument && (sizeChanged || this.isDirty)) {
+			this._render(this.instrument);
+		}
+	}
+
+	render(instrument) {
+		this.instrument = instrument.slice();
+		this._render();
+	}
+
+	_render() {
+		let len = 
+			this.instrument[13/*env_attack*/] + 
+			this.instrument[14/*env_sustain*/] + 
+			this.instrument[15/*env_release*/];
+
+		if (!this.canvas.checkVisibility() || !len) {
+			this.isDirty = true;
+			return;
+		}
+
+		// Render instrument without delay
+		this.instrument[20/*fx_delay_time*/] = 0;
+		this.instrument[21/*fx_delay_amt*/] = 0;
+
+		let buffer = this.synth.sound(this.instrument, 147 /* C-5 */);
+		if (!buffer) {
+			this.isDirty = true;
+			return;
+		}
+
+		this.isDirty = false;
+
+		let samples = buffer.getChannelData(0);
+		let w = this.canvas.width;
+		let h = this.canvas.height;
+		let ctx = this.ctx;
+
+		let samplesPerPixel = samples.length / w;
+		let cy = h / 2;
+
+		ctx.clearRect(0, 0, w, h);
+
+		// Envelope
+		let attack = this.instrument[13/*env_attack*/] / samplesPerPixel; 
+		let sustain = this.instrument[14/*env_sustain*/] / samplesPerPixel;
+		let release = this.instrument[15/*env_release*/] / samplesPerPixel;
+		let master = this.instrument[16/*master*/] / 255;
+
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+		ctx.beginPath();
+		ctx.moveTo(0, cy);
+		ctx.lineTo(attack, cy - cy * master);
+		ctx.lineTo(attack+sustain, cy - cy * master);
+		ctx.lineTo(attack+sustain+release, cy);
+		ctx.lineTo(attack+sustain, cy + cy * master);
+		ctx.lineTo(attack, cy + cy * master);
+		ctx.lineTo(0, cy);
+		ctx.fill();
+
+		// Waveform
+		ctx.lineWidth = 1.5;
+		ctx.strokeStyle = '#fff';
+	
+		ctx.beginPath();
+		ctx.moveTo(0, cy);
+		for (let x = 0; x < w; x++) {
+			let sample = samples[(x * samplesPerPixel)|0];
+			let y = cy + sample * (h / 2);
+			ctx.lineTo(x, y);
+		}
+		ctx.stroke();
+
+		// envelopeSamples
+		let text =
+			(len / 44100).toFixed(2) + 's / ' +
+			Math.round(len) + ' samples';
+		ctx.font = '12px sans-serif';
+		ctx.textAlign = 'right';
+		ctx.fillStyle = '#555';
+		ctx.fillText(text, w-4, h - 5);
+	}
+}
+
+
+
+// -----------------------------------------------------------------------------
+// Piano
+
+class Piano extends HTMLComponent {
+	app = null;
+	currentOctaveElement = null;
+	currentOctave = 4;
+	keys = [
+		'z','s','x','d','c','v','g','b','h','n','j','m',',','l','.',';','/','q',
+		'2','w','3','e','4','r','t','6','y','7','u','i','9','o','0','p','-','['
+	];
+	keyCodeMap = [
+		'KeyZ','KeyS','KeyX','KeyD','KeyC','KeyV','KeyG','KeyB','KeyH','KeyN','KeyJ','KeyM','Comma','KeyL','Period','Semicolon','Slash','KeyQ',
+		'Digit2','KeyW','Digit3','KeyE','Digit4','KeyR','KeyT','Digit6','KeyY','Digit7','KeyU','KeyI','Digit9','KeyO','Digit0','KeyP','Minus','BracketLeft'
+	];
+
+	constructor(app) {
+		super();
+		this.app = app;
+		this.element = h('div', {class: 'pane piano'},
+			h('div', {class: 'octave'}, 
+				h('span', {text: '▲', class: 'move', title: 'Octave up', onclick: ev => this.moveOctave(1)}),
+				h('span', {text: this.currentOctave, oncreate: el => this.currentOctaveElement = el}),
+				h('span', {text: '▼', class: 'move', title: 'Octave down', onclick: ev => this.moveOctave(-1)}),
+			),
+			h('div', {class: 'keys'},
+				this.keys.map((k, i) => h('span', {text: k, onmousedown: ev => this.note(i)}))
+			)
+		);
+	}
+
+	moveOctave(dir) {
+		this.currentOctave = clamp(this.currentOctave+dir, 1, 8);
+		this.currentOctaveElement.textContent = this.currentOctave;
+	}
+
+	onKeyDown(ev) {
+		let index = this.keyCodeMap.indexOf(ev.code);
+		if (index === -1 || ev.shiftKey || ev.ctrlKey || ev.metaKey) {
+			return false;
+		}
+
+		this.note(index)
+		return true;
+	}
+
+	highlightKey(index) {
+		let key = this.element.querySelector('.keys span:nth-child('+(index+1)+')');
+		if (key) {
+			key.classList.remove('active');
+			void key.offsetWidth; // Force a reflow
+			key.classList.add('active');
+		}
+	}
+
+	highlightNote(note) {
+		let index = (note + 9) % 36;
+		this.highlightKey(index);
+	}
+
+	note(index) {
+		this.highlightKey(index);
+
+		let note = index + 87 + this.currentOctave * 12;
+		this.app.activeTrack?.instrument.playNote(note);
+		if (this.app.focused === this.app.activeTrack?.activePattern) {
+			this.app.activeTrack?.activePattern?.setNote(note);
+		}
+	}
+}
+
+
+let audioContext = new (window.webkitAudioContext||window.AudioContext)();
+
+pl_synth_wasm_init(audioContext, (synth) => {
+	window.app = new SynthApp(document.body, audioContext, synth);
+
+	// Attempt to load song from fraction part of the URL
+	let hash = document.location.hash.replace('#', '');
+	if (hash.length) {
+		decompress(hash, (decompressed) => window.app.loadText(decompressed));
+	}
+});
+
+// When Using the non-wasm version
+// window.app = new SynthApp(document.body, audioContext, pl_synth_init(audioContext));
+
+
+</script>
+</body>
+</html>
