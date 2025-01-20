@@ -25,9 +25,7 @@ WASMFLAGS:=--target=wasm32 -std=c99 \
 LDFLAGS:=-lm
 
 # Source and target files
-PLAIN_JS=js/pl_synth.js
 PLAIN_JS_MIN=release/pl_synth.min.js
-
 WASM_SRC=wasm/pl_synth_wasm_module.c
 WASM_TARGET=wasm/pl_synth.wasm
 
@@ -39,16 +37,12 @@ NATIVE_BIN=c/example
 
 .PHONY: all clean
 
-all: $(WASM_JS_MIN) $(PLAIN_JS_MIN) $(NATIVE_BIN)
-
-# Target: Minified plain JS version of pl_synth
-$(PLAIN_JS_MIN): $(PLAIN_JS)
-	cp $< $@
-	cp tracker.html release/tracker.html
+all: $(WASM_JS_MIN) $(NATIVE_BIN)
 
 # Embed WASM module into JS
 $(WASM_JS_MIN): $(WASM_TEMPLATE) $(WASM_TARGET)
 	@ $(SED) "s|{{WASM_MODULE_EMBEDDED_HERE_AS_BASE64}}|$(shell $(BASE64) $(WASM_TARGET))|" $(WASM_TEMPLATE) > $@
+	cp tracker.html release/index.html
 
 # Compile the WASM module
 $(WASM_TARGET): $(WASM_SRC)
@@ -61,4 +55,7 @@ $(NATIVE_BIN): $(NATIVE_SRC)
 # Clean up generated files
 clean:
 	rm -f $(PLAIN_JS_MIN) $(WASM_TARGET) $(WASM_JS_MIN) $(NATIVE_BIN)
-	rm -f release/tracker.html
+	rm -f release/index.html
+
+serve:
+	busboy --root=release
