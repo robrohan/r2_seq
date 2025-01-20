@@ -4,7 +4,7 @@ Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
 SPDX-License-Identifier: MIT
 
 Based on Sonant, published under the Creative Commons Public License
-(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ] 
+(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
 
 
 -- Synopsis
@@ -22,8 +22,8 @@ pl_synth_init(synth_tab);
 // A sound is described by an instrument (synth), the row_len in samples and
 // a note.
 pl_synth_sound_t sound = {
-	.synth = {7,0,0,0,192,0,7,0,0,0,192,0,0,200,2000,20000,192}, 
-	.row_len = 5168, 
+	.synth = {7,0,0,0,192,0,7,0,0,0,192,0,0,200,2000,20000,192},
+	.row_len = 5168,
 	.note = 135
 };
 
@@ -121,7 +121,7 @@ void pl_synth_init(float *tab_buffer);
 // effect.
 int pl_synth_sound_len(pl_synth_sound_t *sound);
 
-// Generate a stereo sound into the buffer pointed to by samples. The buffer 
+// Generate a stereo sound into the buffer pointed to by samples. The buffer
 // must be at least pl_synth_sound_len() * 2 elements long.
 int pl_synth_sound(pl_synth_sound_t *sound, int16_t *samples);
 
@@ -129,7 +129,7 @@ int pl_synth_sound(pl_synth_sound_t *sound, int16_t *samples);
 int pl_synth_song_len(pl_synth_song_t *song);
 
 // Generate a stereo song into the buffer pointed to by samples, with temporary
-// storage provided to by temp_samples. The buffers samples and temp_samples 
+// storage provided to by temp_samples. The buffers samples and temp_samples
 // must each be at least pl_synth_song_len() * 2 elements long.
 int pl_synth_song(pl_synth_song_t *song, int16_t *samples, int16_t *temp_samples);
 
@@ -159,7 +159,7 @@ void pl_synth_init(float *tab_buffer) {
 	}
 
 	// sin
-	for (int i = 0; i < PL_SYNTH_TAB_LEN; i++) { 
+	for (int i = 0; i < PL_SYNTH_TAB_LEN; i++) {
 		pl_synth_tab[0][i] = sinf(i*(6.283184f/(float)PL_SYNTH_TAB_LEN));
 	}
 	// square
@@ -172,10 +172,10 @@ void pl_synth_init(float *tab_buffer) {
 	}
 	// triangle
 	for (int i = 0; i < PL_SYNTH_TAB_LEN; i++) {
-		pl_synth_tab[3][i] = i < PL_SYNTH_TAB_LEN/2 
-			? (i/(PL_SYNTH_TAB_LEN/4.0)) - 1.0 
+		pl_synth_tab[3][i] = i < PL_SYNTH_TAB_LEN/2
+			? (i/(PL_SYNTH_TAB_LEN/4.0)) - 1.0
 			: 3.0 - (i/(PL_SYNTH_TAB_LEN/4.0));
-	} 
+	}
 }
 
 static inline float pl_synth_note_freq(int n, int oct, int semi, int detune) {
@@ -193,8 +193,8 @@ static inline int pl_synth_clamp_s16(int v) {
 static void pl_synth_gen(int16_t *samples, int write_pos, int row_len, int note, pl_synth_t *s) {
 	float fx_pan_freq = powf(2, s->fx_pan_freq - 8) / row_len;
 	float lfo_freq = powf(2, s->lfo_freq - 8) / row_len;
-	
-	// We need higher precision here, because the oscilator positions may be 
+
+	// We need higher precision here, because the oscilator positions may be
 	// advanced by tiny values and error accumulates over time
 	double osc0_pos = 0;
 	double osc1_pos = 0;
@@ -214,9 +214,9 @@ static void pl_synth_gen(int16_t *samples, int write_pos, int row_len, int note,
 	float osc1_freq = pl_synth_note_freq(note, s->osc1_oct, s->osc1_det, s->osc1_detune);
 
 	int num_samples = s->env_attack + s->env_sustain + s->env_release - 1;
-	
-	for (int j = num_samples; j >= 0; j--) {
-		int k = j + write_pos;
+
+	for (int32_t j = num_samples; j >= 0; j--) {
+		int32_t k = j + write_pos;
 
 		// LFO
 		float lfor = PL_SYNTH_TAB(s->lfo_waveform, k * lfo_freq) * lfo_amt + 0.5f;
@@ -227,10 +227,10 @@ static void pl_synth_gen(int16_t *samples, int write_pos, int row_len, int note,
 		float envelope = 1;
 
 		// Envelope
-		if (j < s->env_attack) {
+		if ((uint32_t)j < s->env_attack) {
 			envelope = (float)j * inv_attack;
 		}
-		else if (j >= s->env_attack + s->env_sustain) {
+		else if ((uint32_t)j >= s->env_attack + s->env_sustain) {
 			envelope -= (float)(j - s->env_attack - s->env_sustain) * inv_release;
 		}
 
@@ -281,7 +281,6 @@ static void pl_synth_gen(int16_t *samples, int write_pos, int row_len, int note,
 		temp_f = PL_SYNTH_TAB(0, k * fx_pan_freq) * pan_amt + 0.5f;
 		sample *= 78 * s->env_master;
 
-
 		samples[k * 2 + 0] += sample * (1-temp_f);
 		samples[k * 2 + 1] += sample * temp_f;
 	}
@@ -300,9 +299,9 @@ static int pl_synth_instrument_len(pl_synth_t *synth, int row_len) {
 	int delay_shift = (synth->fx_delay_time * row_len) / 2;
 	float delay_amount = synth->fx_delay_amt / 255.0;
 	float delay_iter = ceilf(logf(0.1) / logf(delay_amount));
-	return synth->env_attack + 
-		synth->env_sustain + 
-		synth->env_release + 
+	return synth->env_attack +
+		synth->env_sustain +
+		synth->env_release +
 		delay_iter * delay_shift;
 }
 
@@ -333,7 +332,7 @@ int pl_synth_song_len(pl_synth_song_t *song) {
 			num_samples = track_samples;
 		}
 	}
-	
+
 	return num_samples;
 }
 
@@ -346,7 +345,7 @@ int pl_synth_song(pl_synth_song_t *song, int16_t *samples, int16_t *temp_samples
 		pl_synth_track_t *track = &song->tracks[t];
 		memset(temp_samples, 0, sizeof(int16_t) * len_2);
 
-		for (int si = 0; si < track->sequence_len; si++) {
+		for (uint32_t si = 0; si < track->sequence_len; si++) {
 			int write_pos = song->row_len * si * 32;
 			int pi = track->sequence[si];
 			if (pi > 0) {
@@ -360,7 +359,7 @@ int pl_synth_song(pl_synth_song_t *song, int16_t *samples, int16_t *temp_samples
 				}
 			}
 		}
-		
+
 		if (track->synth.fx_delay_amt) {
 			int delay_shift = (track->synth.fx_delay_time * song->row_len) / 2;
 			float delay_amount = track->synth.fx_delay_amt / 255.0;

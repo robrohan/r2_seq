@@ -4,7 +4,7 @@ Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
 SPDX-License-Identifier: MIT
 
 Based on Sonant, published under the Creative Commons Public License
-(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ] 
+(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
 
 */
 
@@ -28,15 +28,15 @@ static inline float note_freq(int n, int oct, int semi, int detune) {
 	return (0.00390625 * js_powf(1.059463094, n - 128 + (oct - 8) * 12 + semi)) * (1.0f + 0.0008f * detune);
 }
 
-void init() {
-	for (int i = 0; i < PL_SYNTH_TAB_LEN; i++) { 
+void init(void) {
+	for (int i = 0; i < PL_SYNTH_TAB_LEN; i++) {
 		tab[0][i] = js_sinf(i*(float)(6.283184/PL_SYNTH_TAB_LEN));
 		tab[1][i] = tab[0][i] < 0 ? -1 : 1;
 		tab[2][i] = (float)i / PL_SYNTH_TAB_LEN - 0.5;
-		tab[3][i] = i < PL_SYNTH_TAB_LEN/2 
-			? (i/(PL_SYNTH_TAB_LEN/4.0)) - 1.0 
+		tab[3][i] = i < PL_SYNTH_TAB_LEN/2
+			? (i/(PL_SYNTH_TAB_LEN/4.0)) - 1.0
 			: 3.0 - (i/(PL_SYNTH_TAB_LEN/4.0));
-	} 
+	}
 }
 
 void gen(
@@ -84,8 +84,8 @@ void gen(
 ) {
 	float fx_pan_freq = js_powf(2, fx_pan_freq_p - 8) / row_len;
 	float lfo_freq = js_powf(2, lfo_freq_p - 8) / row_len;
-	
-	// We need higher precision here, because the oscilator positions may be 
+
+	// We need higher precision here, because the oscilator positions may be
 	// advanced by tiny values and error accumulates over time
 	double osc0_pos = 0;
 	double osc1_pos = 0;
@@ -105,7 +105,7 @@ void gen(
 	float osc1_freq = note_freq(note, osc1_oct, osc1_det, osc1_detune);
 
 	int num_samples = env_attack + env_sustain + env_release - 1;
-	
+
 	for (int j = num_samples; j >= 0; j--) {
 		int k = j + write_pos;
 
@@ -118,10 +118,10 @@ void gen(
 		float envelope = 1;
 
 		// Envelope
-		if (j < env_attack) {
+		if ((uint32_t)j < env_attack) {
 			envelope = (float)j * inv_attack;
 		}
-		else if (j >= env_attack + env_sustain) {
+		else if ((uint32_t)j >= env_attack + env_sustain) {
 			envelope -= (float)(j - env_attack - env_sustain) * inv_release;
 		}
 

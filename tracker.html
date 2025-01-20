@@ -489,7 +489,7 @@
 		td.input:hover {
 			background-color: #222;
 		}
-		
+
 		td.idx {
 			width: 1.8em;
 			color: #444;
@@ -501,15 +501,15 @@
 			text-align: center;
 		}
 
-		tr.active td.note, 
+		tr.active td.note,
 		tr.active:hover td.note,
-		td.active, 
+		td.active,
 		td.active:hover {
 			color: var(--primary_contrast);
 			background-color: var(--primary_unfocused);
 		}
-		tr.active td.idx, 
-		td.idx.active, 
+		tr.active td.idx,
+		td.idx.active,
 		td.vidx.active {
 			color: var(--primary_contrast);
 			background-color: #999;
@@ -545,7 +545,7 @@
 
 		.instrument {
 			display: flex;
-			
+
 			.module {
 				padding: 0.75em 0.5em 0.25em 0.5em;
 				border-right: 1px solid var(--border);
@@ -583,8 +583,8 @@
 
 
 		/* Piano -------------------------------------------------------------*/
-		
-		@keyframes flash {  
+
+		@keyframes flash {
 			from { background: var(--primary_100); }
 			to   { background: default; }
 		}
@@ -631,7 +631,7 @@
 					box-shadow: 0 0 0px 1px #0006;
 					flex: 1;
 					background-color: #333;
-					
+
 				}
 
 				span.active {
@@ -662,7 +662,7 @@
 	</style>
 </head>
 <body>
-<script type="text/javascript" src="release/pl_synth_wasm.min.js"></script>
+<script type="text/javascript" src="pl_synth_wasm.min.js"></script>
 <script type="text/javascript">
 
 // -----------------------------------------------------------------------------
@@ -809,7 +809,7 @@ class Checkbox extends HTMLComponent {
 		this.onChangeCallback = settings.onchange ?? null;
 
 		this.checkbox = h('input', {type: 'checkbox', value: 1, onchange: ev => this.onChange(ev)});
-		this.element = h('label', {class: 'checkbox', title: settings.title ?? ''}, 
+		this.element = h('label', {class: 'checkbox', title: settings.title ?? ''},
 			this.checkbox,
 			h('span', {text: name})
 		);
@@ -851,7 +851,7 @@ class RadioSelect extends HTMLComponent {
 		this.onChangeCallback = settings.onchange ?? null;
 
 		let groupName = 'radio_select_' + (RadioSelect.UniqueId++);
-		this.element = h('div', {class: 'radio_select'}, 
+		this.element = h('div', {class: 'radio_select'},
 			options.map(opt => {
 				let radio = h('input', {type: 'radio', name: groupName, value: opt.value, onchange: ev => this.onChange(ev, opt.value)});
 				this.radios[opt.value] = radio;
@@ -907,9 +907,9 @@ class RangeSlider extends HTMLComponent {
 		this.onChangeCallback = settings.onchange ?? null;
 
 		this.boundOnMouseMove = this.onMouseMove.bind(this);
-		this.element = h('div', {class: 'range'}, 
+		this.element = h('div', {class: 'range'},
 			h('div', {class: 'name', text: name, title: settings.title ?? ''}),
-			h('div', {class: 'slider', onmousedown: ev => this.onMouseDown(ev)}, 
+			h('div', {class: 'slider', onmousedown: ev => this.onMouseDown(ev)},
 				h('div', {class: 'track'}),
 				h('div', {class: 'pos', oncreate: el => this.pos = el}),
 				h('div', {class: 'tip', oncreate: el => this.tip = el})
@@ -978,7 +978,7 @@ class Modal extends HTMLComponent {
 				content
 			)
 		);
-		
+
 		document.body.appendChild(this.element);
 
 		this.boundOnKeyDown = this.onKeyDown.bind(this);
@@ -1009,7 +1009,7 @@ class Modal extends HTMLComponent {
 
 class ConfirmModal extends Modal {
 	constructor(title, description, callback, confirmText = 'ok', cancelText = 'cancel') {
-		super(title, description, h('div', {class: 'buttons'}, 
+		super(title, description, h('div', {class: 'buttons'},
 			h('button', {text: cancelText, onclick: ev => {this.dismiss(); callback(false)}}),
 			h('button', {text: confirmText, onclick: ev => {this.dismiss(); callback(true)}})
 		));
@@ -1019,10 +1019,10 @@ class ConfirmModal extends Modal {
 class ImportModal extends Modal {
 	constructor(title, description, onImport) {
 		super(title, description, h('div', {},
-			h('div', {}, 
+			h('div', {},
 				h('textarea', {class: 'data'})
 			),
-			h('div', {class: 'buttons'}, 
+			h('div', {class: 'buttons'},
 				h('button', {text: 'Import Text', onclick: ev => this.importText(ev)}),
 				h('button', {text: 'Open File', onclick: ev => this.openFile(ev)})
 			)
@@ -1070,12 +1070,12 @@ class ExportModal extends Modal {
 		super(title, description, h('div', {},
 			types.map(t => h('div', {class: 'export_type'},
 				h('div', {text: t.title}),
-				h('div', {}, 
+				h('div', {},
 					t.inline
 						? h('input', {type: 'text', class: 'data', readonly: 'readonly', value: t.data, onfocus: ev => this.onFocus(ev)})
 						: h('textarea', {class: 'data', readonly: 'readonly', text: t.data, onfocus: ev => this.onFocus(ev)})
 				),
-				h('div', {class: 'buttons'}, 
+				h('div', {class: 'buttons'},
 					t.inline ? null : h('button', {text: 'Download '+t.name, onclick: ev => this.download(t)}),
 				)
 			))
@@ -1141,9 +1141,9 @@ class SynthApp {
 			this.tracks.push(new Track(this, i));
 		}
 
-		this.element = h('div', {class: 'app'}, 
+		this.element = h('div', {class: 'app'},
 			h('div', {class: 'row pane menu'},
-				h('div', {class: 'logo'}, 
+				h('div', {class: 'logo'},
 					h('span', {text: 'pl_synth'}),
 					h('span', {class: 'slashes', text: '//'}),
 					h('span', {class: 'indicator', title: 'Play/Stop [Space]', oncreate: el => this.indicator = el, onclick: ev => this.play()},
@@ -1155,14 +1155,14 @@ class SynthApp {
 				h('div', {},
 					h('span', {text: 'bpm'}),
 					h('input', {
-						class: 'bpm', 
-						type: 'number', 
-						value: this.defaultBPM, 
-						oncreate: el => this.bpmInput = el, 
+						class: 'bpm',
+						type: 'number',
+						value: this.defaultBPM,
+						oncreate: el => this.bpmInput = el,
 						oninput: ev => this.setBPM(ev.currentTarget.value)
 					}),
 				),
-				
+
 				h('button', {text: 'New', onclick: ev => this.new()}),
 				h('button', {text: 'Load', onclick: ev => this.load()}),
 				h('button', {text: 'Save', onclick: ev => this.save()}),
@@ -1298,7 +1298,7 @@ class SynthApp {
 
 
 		// JS Array with holes -------------------------------------------------
-		// Set all zeroes to `null`, so we can easily string replace them with 
+		// Set all zeroes to `null`, so we can easily string replace them with
 		// nothing afterwards.
 		let nulledData = undefineZero(data);
 		let nulledJson = JSON.stringify(nulledData);
@@ -1340,7 +1340,7 @@ class SynthApp {
 
 	loadConfirmed() {
 		new ImportModal(
-			'Load / Import Song', 
+			'Load / Import Song',
 			'Song data as pl_synth JS Array, C-Struct or legacy Sonant-X JSON',
 			(text) => this.loadText(text)
 		);
@@ -1357,7 +1357,7 @@ class SynthApp {
 		let structMatch = text.match(/({.*?}\s*}\s*}\s*}\s*}\s*})/sm);
 
 		let json = null;
-		
+
 		if (jsArrayMatch) {
 			this.log.write('loading as js array');
 			json = jsArrayMatch[1]
@@ -1467,7 +1467,7 @@ class SynthApp {
 		this.rowLen = data[0/*row_len*/];
 		this.bpm = Math.round(60 * 44100 / 4 / this.rowLen);
 		this.bpmInput.value = this.bpm;
-			
+
 		let tracksData = data[1/*tracks*/];
 		for (let i = 0; i < tracksData.length; i++) {
 			this.tracks[i].setJson(tracksData[i]);
@@ -1645,7 +1645,7 @@ class SynthApp {
 		}
 
 		this.playhead?.stop();
-			
+
 		this.log.write('generating song');
 		let time = Date.now();
 
@@ -1734,7 +1734,7 @@ class SynthApp {
 				this.log.write('nothing to redo');
 			}
 		}
-		
+
 		// Unhandled here. Let's see if the piano wants to handle this key.
 		else if (this.piano.onKeyDown(ev)) {
 			return true;
@@ -1981,7 +1981,7 @@ class PlayheadPattern extends Playhead {
 			this.playedThrough();
 			return;
 		}
-		
+
 		let changed = this.pattern.setPlayhead(row + this.start)
 		if (changed) {
 			let note = this.patternData[row];
@@ -2081,7 +2081,7 @@ class History {
 		if (this.pos === 0) {
 			return null;
 		}
-		
+
 		let action = this.stack[this.stack.length - this.pos];
 		if (!action) {
 			return null;
@@ -2099,7 +2099,7 @@ class OutputLog extends HTMLComponent {
 		super();
 		this.element = h('div', {class: 'pane log'},
 			h('div', {class: 'head', text: 'Log'}),
-			h('div', {class: 'content'}, 
+			h('div', {class: 'content'},
 				h('div', {class: 'lines', oncreate: el => this.linesContainer = el})
 			)
 		);
@@ -2126,9 +2126,9 @@ class DataGrid extends HTMLComponent {
 	data = [];
 
 	// start index for data in the table (sans index)
-	dy = 0; 
+	dy = 0;
 	dx = 1;
-	
+
 	playheadPos = null;
 
 	selection = {
@@ -2152,13 +2152,13 @@ class DataGrid extends HTMLComponent {
 		}
 
 		this.element = h('table', {
-			onmousedown: ev => this.onMouseDown(ev), 
+			onmousedown: ev => this.onMouseDown(ev),
 			onmousemove: ev => this.onMouseMove(ev)
 		},
 			repeat(this.dy, () =>
-				h('tr', {}, 
+				h('tr', {},
 					h('td', {}),
-					repeat(this.width, i => 
+					repeat(this.width, i =>
 						h('td', {class: 'vidx', text: i + 1})
 					)
 				)
@@ -2178,7 +2178,7 @@ class DataGrid extends HTMLComponent {
 			for (let y = 0; y < this.height; y++) {
 				this.setAtPosition(x, y, 0);
 			}
-		}	
+		}
 	}
 
 	addRow() {
@@ -2423,7 +2423,7 @@ class DataGrid extends HTMLComponent {
 			}
 			this.playheadPos = null;
 		}
-		
+
 		// highlight
 		if (sx !== null) {
 			for (let x = sx; x < ex; x++) {
@@ -2471,12 +2471,12 @@ class Sequencer extends HTMLComponent {
 
 		this.element = h('div', {class: 'pane sequencer', onmousedown: ev => this.focus()},
 			h('div', {class: 'head', text: 'Sequencer', onclick: ev => this.focusWithReset()},
-				h('span', {}, 
+				h('span', {},
 					h('button', {class: 'small', text: 'rem', title: 'remove row', onclick: ev => this.removeRow()}),
 					h('button', {class: 'small', text: 'add', title: 'add row', onclick: ev => this.addRow()})
 				)
 			),
-			h('div', {class: 'scroll_stretch'}, 
+			h('div', {class: 'scroll_stretch'},
 				this.table
 			)
 		);
@@ -2511,7 +2511,7 @@ class Sequencer extends HTMLComponent {
 		for (let td of tracks) {
 			rows = Math.max(rows, td[1/*sequence*/].length);
 		}
-		this.table.setRows(rows);		
+		this.table.setRows(rows);
 
 		for (let x = 0; x < tracks.length; x++) {
 			let sequence = tracks[x][1/*sequence*/];
@@ -2632,7 +2632,7 @@ class Sequencer extends HTMLComponent {
 			) {
 				this.app.activeTrack.setActivePattern(0);
 			}
-			this.app.activeTrack?.activePattern.focus();	
+			this.app.activeTrack?.activePattern.focus();
 			return true;
 		}
 		else if (ev.key === ' ') {
@@ -2649,7 +2649,7 @@ class Sequencer extends HTMLComponent {
 				(
 					s.start.x === s.end.x &&
 					s.start.y === s.end.y
-				) 
+				)
 			) {
 				let sy = Math.max(1, s.start.y);
 				this.app.togglePlaySong(0, this.app.numTracks, sy - 1, this.maxLen());
@@ -2663,7 +2663,7 @@ class Sequencer extends HTMLComponent {
 			}
 			return true;
 		}
-		
+
 		return false;
 	}
 }
@@ -2693,12 +2693,12 @@ class Track extends HTMLComponent{
 
 		this.element = h('div', {class: 'row track'},
 			h('div', {class: 'head', text: 'Track ' + (index+1)},
-				h('span', {}, 
+				h('span', {},
 					h('button', {class: 'small', text: 'rem', title: 'remove pattern', onclick: ev => this.onRemovePattern()}),
 					h('button', {class: 'small', text: 'add', title: 'add pattern', onclick: ev => this.onAddPattern()})
 				)
 			),
-			h('div', {class: 'patterns', oncreate: el => this.patternsElement = el}, 
+			h('div', {class: 'patterns', oncreate: el => this.patternsElement = el},
 				this.patterns
 			),
 			this.instrument.element
@@ -2822,9 +2822,9 @@ class Pattern extends HTMLComponent {
 
 		this.table = new DataGrid(1, this.numRows, false, (v => this.getNoteName(v)));
 
-		this.element = h('div', {class: 'pane pattern'}, 
+		this.element = h('div', {class: 'pane pattern'},
 			h('div', {class: 'head', text: 'Pattern ' + (this.index + 1), onclick: ev => this.focusWithReset() }),
-			h('div', {class: 'scroll_stretch', onmousedown: ev => this.focus() }, 
+			h('div', {class: 'scroll_stretch', onmousedown: ev => this.focus() },
 				this.table
 			)
 		);
@@ -3118,7 +3118,7 @@ class Instrument extends HTMLComponent {
 					this.props.env_release
 				),
 				h('div', {class: 'module'},
-					h('div', {class: 'title', text: 'LFO'}, 
+					h('div', {class: 'title', text: 'LFO'},
 						this.props.lfo_waveform
 					),
 					this.props.lfo_amt,
@@ -3142,8 +3142,8 @@ class Instrument extends HTMLComponent {
 					this.props.noise_fader
 				),
 				h('div', {class: 'module'},
-					
-						h('select', {onchange: ev => this.loadPreset(ev) }, 
+
+						h('select', {onchange: ev => this.loadPreset(ev) },
 							h('option', {value: 'select', text: 'Load Preset'}),
 							Object.keys(Instrument.Presets).map((name) =>
 								h('option', {value: name, text: name})
@@ -3167,7 +3167,7 @@ class Instrument extends HTMLComponent {
 
 	load() {
 		new ImportModal(
-			'Load / Import Instrument', 
+			'Load / Import Instrument',
 			'Instrument data as pl_synth JS Array, C-Struct or legacy Sonant-X JSON',
 			(text) => this.loadText(text)
 		);
@@ -3182,7 +3182,7 @@ class Instrument extends HTMLComponent {
 		let jsArrayMatch = text.match(/=?\s*(\[\s*[\d+,].*?\])/sm);
 		let jsonMatch = text.match(/({\s*"osc1_oct".*?})/sm);
 		let structMatch = text.match(/({\s*\d.*?})/sm);
-		
+
 		if (jsArrayMatch) {
 			this.track.app.log.write('loading as JS array');
 			let json = jsArrayMatch[1]
@@ -3276,7 +3276,7 @@ class Instrument extends HTMLComponent {
 
 	activate() {
 		this.waveform.renderIfDirty();
-	}	
+	}
 
 	onChange(name, v) {
 		this.noteCache = {};
@@ -3310,9 +3310,9 @@ class Instrument extends HTMLComponent {
 		}
 
 		if (!this.noteCache[note]) {
-			let len = 
-				this.data[13/*env_attack*/] + 
-				this.data[14/*env_sustain*/] + 
+			let len =
+				this.data[13/*env_attack*/] +
+				this.data[14/*env_sustain*/] +
 				this.data[15/*env_release*/];
 			if (!len) {
 				return null;
@@ -3368,9 +3368,9 @@ class WaveformDisplay extends HTMLComponent {
 	}
 
 	_render() {
-		let len = 
-			this.instrument[13/*env_attack*/] + 
-			this.instrument[14/*env_sustain*/] + 
+		let len =
+			this.instrument[13/*env_attack*/] +
+			this.instrument[14/*env_sustain*/] +
 			this.instrument[15/*env_release*/];
 
 		if (!this.canvas.checkVisibility() || !len) {
@@ -3401,7 +3401,7 @@ class WaveformDisplay extends HTMLComponent {
 		ctx.clearRect(0, 0, w, h);
 
 		// Envelope
-		let attack = this.instrument[13/*env_attack*/] / samplesPerPixel; 
+		let attack = this.instrument[13/*env_attack*/] / samplesPerPixel;
 		let sustain = this.instrument[14/*env_sustain*/] / samplesPerPixel;
 		let release = this.instrument[15/*env_release*/] / samplesPerPixel;
 		let master = this.instrument[16/*master*/] / 255;
@@ -3420,7 +3420,7 @@ class WaveformDisplay extends HTMLComponent {
 		// Waveform
 		ctx.lineWidth = 1.5;
 		ctx.strokeStyle = '#fff';
-	
+
 		ctx.beginPath();
 		ctx.moveTo(0, cy);
 		for (let x = 0; x < w; x++) {
@@ -3463,7 +3463,7 @@ class Piano extends HTMLComponent {
 		super();
 		this.app = app;
 		this.element = h('div', {class: 'pane piano'},
-			h('div', {class: 'octave'}, 
+			h('div', {class: 'octave'},
 				h('span', {text: '▲', class: 'move', title: 'Octave up', onclick: ev => this.moveOctave(1)}),
 				h('span', {text: this.currentOctave, oncreate: el => this.currentOctaveElement = el}),
 				h('span', {text: '▼', class: 'move', title: 'Octave down', onclick: ev => this.moveOctave(-1)}),
