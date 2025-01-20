@@ -32,8 +32,8 @@ WASM_TARGET=wasm/pl_synth.wasm
 WASM_TEMPLATE=wasm/pl_synth_wasm_template.js
 WASM_JS_MIN=release/pl_synth_wasm.min.js
 
-NATIVE_SRC=c/example.c c/pl_synth.h
-NATIVE_BIN=c/example
+NATIVE_SRC=src/example.c src/pl_synth.h
+NATIVE_BIN=build/example
 
 .PHONY: all clean
 
@@ -50,12 +50,14 @@ $(WASM_TARGET): $(WASM_SRC)
 
 # Target: Compiled native example
 $(NATIVE_BIN): $(NATIVE_SRC)
+	mkdir -p build
 	$(CC) $< $(CFLAGS) -o $@ $(LDFLAGS)
 
 # Clean up generated files
 clean:
 	rm -f $(PLAIN_JS_MIN) $(WASM_TARGET) $(WASM_JS_MIN) $(NATIVE_BIN)
 	rm -f release/index.html
+	rm -rf build
 
 serve:
 	busboy --root=release
