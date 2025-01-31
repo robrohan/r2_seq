@@ -1,5 +1,6 @@
 *~
 .DS_Store
-c/example.dSYM
 release
 example.wav
+pl_synth.wasm
+build
