@@ -2,6 +2,8 @@
 
 Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
 SPDX-License-Identifier: MIT
+Copyright (c) 2025, TheRohans - https://therohans.com
+Added Midi Control
 
 Based on Sonant, published under the Creative Commons Public License
 (c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
