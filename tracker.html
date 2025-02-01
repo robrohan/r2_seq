@@ -1128,7 +1128,7 @@ class SynthApp {
 	playhead = null;
 	history = null;
 
-	defaultBPM = 120;
+	defaultBPM = 130;
 
 	constructor(parent, audioContext, synth) {
 		this.ctx = audioContext;
@@ -2693,6 +2693,19 @@ class Sequencer extends HTMLComponent {
 // -----------------------------------------------------------------------------
 // Track
 
+const midiAccess = {
+	outputs: [
+		{
+			name: "Korg NTS-1",
+			id: 8272799222
+		},
+		{
+			name: "Korg Volca Sample",
+			id: 393939939
+		},
+	]
+};
+
 class Track extends HTMLComponent{
 	app = null;
 	instrument = null;
@@ -2701,9 +2714,12 @@ class Track extends HTMLComponent{
 	activePattern = null;
 	numDefaultPatterns = 4;
 
+	midiChannel = 0;
+
 	constructor(app, index) {
 		super();
 		this.app = app;
+		// setup the internal synth as default
 		this.instrument = new Instrument(this);
 		this.index = index;
 
@@ -2711,8 +2727,23 @@ class Track extends HTMLComponent{
 			this.patterns.push(new Pattern(this, i));
 		}
 
+		midiAccess.outputs.forEach(device =>
+			console.log( {value: device.id, text: device.name} )
+		);
+
 		this.element = h('div', {class: 'row track'},
 			h('div', {class: 'head', text: 'Track ' + (index+1)},
+				h('select', {onchange: ins => this.setInstrument(ins), title: 'midi device' },
+					h('option', {value: 'select', text: 'No Device'}),
+						midiAccess.outputs.map(device => h('option', {value: device.id, text: device.name})
+					)
+				),
+
+				h('span', {},
+					h('span', {text: 'Midi Channel'}),
+					h('input', {type: 'text', value: this.midiChannel, onblur: ch => this.setMidiChannel(ch)}),
+				),
+
 				h('span', {},
 					h('button', {class: 'small', text: 'rem', title: 'remove pattern', onclick: ev => this.onRemovePattern()}),
 					h('button', {class: 'small', text: 'add', title: 'add pattern', onclick: ev => this.onAddPattern()})
@@ -2724,6 +2755,23 @@ class Track extends HTMLComponent{
 			this.instrument.element
 		);
 		this.deactivate();
+	}
+
+	setMidiChannel(channel) {
+		this.midiChannel = channel;
+	}
+
+	setInstrument(instrument) {
+		console.debug(instrument);
+		// let name = ev.currentTarget.value;
+		// let preset = Instrument.Presets[name];
+		// if (!preset) {
+		// 	return;
+		// }
+
+		// this.setJson(preset);
+		// ev.currentTarget.value = 'select';
+		// this.track.app.history.add('load preset');
 	}
 
 	reset() {
@@ -3514,7 +3562,7 @@ class Piano extends HTMLComponent {
 	}
 
 	highlightNote(note) {
-		let index = (note + 9) % 36;
+		let index = (note - 60) % 36;
 		this.highlightKey(index);
 	}
 
