@@ -1,4 +1,13 @@
 <!DOCTYPE html>
+<!--
+Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
+SPDX-License-Identifier: MIT
+Copyright (c) 2025, TheRohans - https://therohans.com
+Added Midi Control
+
+Based on Sonant, published under the Creative Commons Public License
+(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
+-->
 <html>
 <head>
 	<meta charset="utf-8">
@@ -1113,6 +1122,7 @@ class SynthApp {
 	numTracks = 8;
 	bpm = 128;
 
+	defaultStep = 16;
 	rowLen = 6014;
 
 	tracks = [];
@@ -1528,14 +1538,24 @@ class SynthApp {
 			return;
 		}
 
-		// TODO: set sequence length parameter, and also is this
-		// where the midi should go?
-		// console.log(songData);
-		let buffer = this.synth.song(songData, 16);
-		let source = this.createBufferSource(buffer);
-
-		// Set a timeout to let ctx.currentTime catch up to the load time :/
-		setTimeout(() => callback(source), 1);
+		// if the first track is using [device_id, channel]
+		// then assume this is all midi
+		if(songData[1][0][0].length == 2)
+		{
+			console.log(songData);
+			console.log(callback);
+			const source = null;
+			setTimeout(() => callback(source), 1);
+		}
+		else
+		{
+			// if the first bit is defining the osc then send
+			// it to wasm. Currently we can't mix these.
+			const buffer = this.synth.song(songData, 16);
+			const source = this.createBufferSource(buffer);
+			// Set a timeout to let ctx.currentTime catch up to the load time :/
+			setTimeout(() => callback(source), 1);
+		}
 	}
 
 	sourceEnded(source) {
@@ -1606,12 +1626,28 @@ class SynthApp {
 		]];
 
 		this.playhead?.stop();
+		const is_midi = track.instrument.getJson().length == 2;
 
-		this.log.write('generating pattern');
-		let time = Date.now();
+		let callback = null;
+		if(is_midi) {
+			callback = (source) => {
+				console.log("midi");
 
-		setTimeout(() => {
-			this.createSongSource(song, (source) => {
+				this.playhead = new PlayheadMidiPattern(this, pattern, start, end, patternData);
+				this.playhead.onPlayedThrough = this.softStop.bind(this);
+			};
+		}
+		else
+		{
+			this.log.write('generating pattern');
+			let time = Date.now();
+
+			callback = (source) => {
+				if (!source) {
+					this.log.write('No source buffer to add audio to');
+					return;
+				}
+
 				this.log.write(
 					source.buffer.getChannelData(0).length + ' samples in '
 					+ (Date.now()-time)+'ms'
@@ -1626,8 +1662,10 @@ class SynthApp {
 				this.indicator.classList.add('playing');
 				this.meter.start(source);
 				source.start();
-			});
-		}, 1);
+			};
+		}
+
+		setTimeout(() => { this.createSongSource(song, callback); }, 1);
 	}
 
 	togglePlaySong(sx, ex, sy, ey) {
@@ -1668,21 +1706,22 @@ class SynthApp {
 
 		setTimeout(() => {
 			this.createSongSource(song, (source) => {
-				this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
+				// source here is an audio source as assumes osc
+				if (source) {
+					this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
+					// handler for after the whole source has played
+					source.addEventListener('ended', ev => this.sourceEnded(source));
+					this.playingSources.push(source);
+					this.stopableSource = source;
+					this.playhead = new PlayheadSong(this, source, sx, ex, sy, ey, song);
+					this.playhead.onPlayedThrough = this.softStop.bind(this);
+					this.indicator.classList.add('playing');
+					this.meter.start(source);
+					source.start();
+				}
 
-				// handler for after the whole source has played
-				source.addEventListener('ended', ev => this.sourceEnded(source));
-				this.playingSources.push(source);
-				this.stopableSource = source;
-
-				this.playhead = new PlayheadSong(this, source, sx, ex, sy, ey, song);
-				this.playhead.onPlayedThrough = this.softStop.bind(this);
-				this.indicator.classList.add('playing');
-
-				this.meter.start(source);
-				source.start();
 			});
-		}, 1);
+		}, 0);
 	}
 
 	setActiveTrack(index) {
@@ -1877,13 +1916,14 @@ class Playhead {
 		if (this.stopped) {
 			return;
 		}
-		let time = this.app.ctx.currentTime - this.startTime;
-		let row = Math.floor(time * 44100 / this.app.rowLen);
-		this.update(row);
+		const time = this.app.ctx.currentTime - this.startTime;
+		const row = Math.floor(time * 44100 / this.app.rowLen);
+		this.update(row, this.app.defaultStep);
+		console.log(row, time);
 		window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
 	}
 
-	update(row) {}
+	update(row, steps=16) {}
 
 	playedThrough() {
 		if (this.onPlayedThrough) {
@@ -1923,10 +1963,8 @@ class PlayheadSong extends Playhead {
 		this.activePatterns = [];
 	}
 
-	update(row) {
-		// TODO: update for len here too
-		const patternLen = 16;
-		let y = Math.floor(row / patternLen);
+	update(row, steps=16) {
+		let y = Math.floor(row / steps);
 		if (y + this.sy >= this.ey) {
 			this.playedThrough();
 			return;
@@ -1953,8 +1991,7 @@ class PlayheadSong extends Playhead {
 		}
 
 		// TODO: the UI of it - the 16 here needs to match the pattern count
-		// const patternLen = 16;
-		let patternRow = Math.floor(row) % patternLen;
+		let patternRow = Math.floor(row) % steps;
 
 		// Set playhead in active patterns
 		for (let pattern of this.activePatterns) {
@@ -1985,6 +2022,43 @@ class PlayheadSong extends Playhead {
 	}
 }
 
+class PlayheadMidiPattern extends Playhead {
+	pattern = null;
+	patternData = null;
+	start = 0;
+	end = 0;
+
+	constructor(app, pattern, start, end, patternData) {
+		super(app, null);
+		this.pattern = pattern;
+		this.start = start;
+		this.end = end;
+		this.patternData = patternData;
+	}
+
+	update(row, steps=16) {
+		if (row + this.start >= this.end) {
+			this.playedThrough();
+			return;
+		}
+
+		let changed = this.pattern.setPlayhead(row + this.start)
+		if (changed) {
+			let note = this.patternData[row];
+			if (note) {
+				console.log(note, this.pattern);
+				this.pattern.track.instrument.playNote(note);
+				this.app.piano.highlightNote(note);
+			}
+		}
+	}
+
+	stop() {
+		super.stop()
+		this.pattern.setPlayhead(null);
+	}
+}
+
 class PlayheadPattern extends Playhead {
 	pattern = null;
 	patternData = null;
@@ -1999,7 +2073,7 @@ class PlayheadPattern extends Playhead {
 		this.patternData = patternData;
 	}
 
-	update(row) {
+	update(row, steps=16) {
 		if (row + this.start >= this.end) {
 			this.playedThrough();
 			return;
@@ -2693,19 +2767,6 @@ class Sequencer extends HTMLComponent {
 // -----------------------------------------------------------------------------
 // Track
 
-const midiAccess = {
-	outputs: [
-		{
-			name: "Korg NTS-1",
-			id: 8272799222
-		},
-		{
-			name: "Korg Volca Sample",
-			id: 393939939
-		},
-	]
-};
-
 class Track extends HTMLComponent{
 	app = null;
 	instrument = null;
@@ -2714,6 +2775,9 @@ class Track extends HTMLComponent{
 	activePattern = null;
 	numDefaultPatterns = 4;
 
+	// midi device id
+	dev_id = null;
+	// default midi channel
 	midiChannel = 0;
 
 	constructor(app, index) {
@@ -2724,24 +2788,25 @@ class Track extends HTMLComponent{
 		this.index = index;
 
 		for (let i = 0; i < this.numDefaultPatterns; i++) {
-			this.patterns.push(new Pattern(this, i));
+			this.patterns.push(new Pattern(this, i, this.app.defaultStep));
 		}
 
+		const outputDevices = [];
 		midiAccess.outputs.forEach(device =>
-			console.log( {value: device.id, text: device.name} )
+			outputDevices.push({value: device.id, text: device.name})
 		);
 
 		this.element = h('div', {class: 'row track'},
 			h('div', {class: 'head', text: 'Track ' + (index+1)},
-				h('select', {onchange: ins => this.setInstrument(ins), title: 'midi device' },
+				h('select', {onchange: ins => this.handleInstrument(ins), title: 'midi device' },
 					h('option', {value: 'select', text: 'No Device'}),
-						midiAccess.outputs.map(device => h('option', {value: device.id, text: device.name})
+					outputDevices.map(d => h('option', {value: d.value, text: d.text})
 					)
 				),
 
 				h('span', {},
 					h('span', {text: 'Midi Channel'}),
-					h('input', {type: 'text', value: this.midiChannel, onblur: ch => this.setMidiChannel(ch)}),
+					h('input', {type: 'number', value: this.midiChannel, onblur: ch => this.handleChannel(ch)}),
 				),
 
 				h('span', {},
@@ -2752,26 +2817,41 @@ class Track extends HTMLComponent{
 			h('div', {class: 'patterns', oncreate: el => this.patternsElement = el},
 				this.patterns
 			),
-			this.instrument.element
+			// this.instrument.element
 		);
 		this.deactivate();
 	}
 
-	setMidiChannel(channel) {
-		this.midiChannel = channel;
+	handleChannel(chanMessage) {
+		let chan = parseInt(chanMessage.target.value);
+		chan = clamp(chan, 0, 0xf);
+		this.setMidiChannel(chan);
 	}
 
-	setInstrument(instrument) {
-		console.debug(instrument);
-		// let name = ev.currentTarget.value;
-		// let preset = Instrument.Presets[name];
-		// if (!preset) {
-		// 	return;
-		// }
+	handleInstrument(instMessage) {
+		console.debug("--->", instMessage.target.value);
+		const dev_id = instMessage?.target?.value;
+		this.setInstrument(dev_id);
+	}
 
-		// this.setJson(preset);
-		// ev.currentTarget.value = 'select';
-		// this.track.app.history.add('load preset');
+	setMidiChannel(channel) {
+		this.midiChannel = channel;
+		this.setInstrument(this.dev_id);
+	}
+
+	setInstrument(dev_id) {
+		this.dev_id = dev_id;
+		const data = this.instrument.data.slice();
+		this.instrument.deactivate();
+		// this.instrument.element = null;
+		this.instrument = null;
+
+		if(this.dev_id && this.dev_id != 'select')
+			this.instrument = new MidiInstrument(this, this.dev_id, this.midiChannel);
+		else
+			this.instrument = new Instrument(this);
+
+		this.instrument.data = data;
 	}
 
 	reset() {
@@ -2882,10 +2962,11 @@ class Pattern extends HTMLComponent {
 
 	playhead = null;
 
-	constructor(track, index) {
+	constructor(track, index, steps=16) {
 		super();
 		this.track = track;
 		this.index = index;
+		this.numRows = steps;
 
 		this.table = new DataGrid(1, this.numRows, false, (v => this.getNoteName(v)));
 
@@ -3057,6 +3138,63 @@ class Pattern extends HTMLComponent {
 // -----------------------------------------------------------------------------
 // Instrument
 
+class MidiInstrument extends HTMLComponent {
+	track = null;
+	data = [];
+
+	device_id = null;
+	channel = 0;
+
+	midiAccess = null;
+
+	constructor(track, device_id, channel) {
+		super();
+		this.track = track;
+		this.device_id = parseInt(device_id);
+		this.channel = channel;
+
+		this.element = h('div', {class: 'midi instrument'},
+			h('div', {text: 'Midi Instrument'},),
+		);
+
+		this.midiAccess = window.midiAccess;
+	}
+
+	activate(){}
+
+	deactivate(){}
+
+	getJson() {
+		// This is kind of used as a flag to mark the instrument as
+		// a midi device, and not an internal synth. len(2) == midi
+		return [this.device_id, this.channel];
+	}
+
+	sendNote(id, channel, note, velocity=0x7f)
+	{
+		const NOTE_ON=0x90;
+		const NOTE_OFF=0x80;
+
+		const output = window.midiAccess.outputs.get(id);
+		const noteOnMessage = [(NOTE_ON+channel), note, velocity];
+		const noteOffMessage = [(NOTE_OFF+channel), note, 0x20];
+
+		if(output) {
+			// omitting the timestamp means send immediately.
+			output.send(noteOnMessage);
+			// timestamp = now + 1000ms
+			output.send(noteOffMessage, window.performance.now() + 1000.0);
+			console.debug(noteOnMessage, noteOffMessage);
+		} else {
+			console.error("output device is null");
+		}
+	}
+
+	playNote(note) {
+		this.sendNote(this.device_id, this.channel, note);
+	}
+}
+
 class Instrument extends HTMLComponent {
 
 	static Presets = {
@@ -3093,6 +3231,8 @@ class Instrument extends HTMLComponent {
 	noteCache = {};
 	data = [];
 	waveform = null;
+
+	listener = null;
 
 	constructor(track) {
 		super();
@@ -3228,7 +3368,7 @@ class Instrument extends HTMLComponent {
 			this.data[i] = prop.value;
 		}
 
-		window.addEventListener("resize", ev => this.waveform.renderIfDirty());
+		this.listener = window.addEventListener("resize", ev => this.waveform.renderIfDirty());
 	}
 
 	load() {
@@ -3342,6 +3482,13 @@ class Instrument extends HTMLComponent {
 
 	activate() {
 		this.waveform.renderIfDirty();
+	}
+
+	deactivate() {
+		this.waveform = null;
+		this.element.remove();
+		window.removeEventListener("resize", this.listener);
+		this.element = null;
 	}
 
 	onChange(name, v) {
@@ -3582,15 +3729,34 @@ class Piano extends HTMLComponent {
 }
 
 let audioContext = new (window.webkitAudioContext||window.AudioContext)();
+window.midiAccess = null;
 
 pl_synth_wasm_init(audioContext, (synth) => {
-	window.app = new SynthApp(document.body, audioContext, synth);
-
-	// Attempt to load song from fraction part of the URL
-	let hash = document.location.hash.replace('#', '');
-	if (hash.length) {
-		decompress(hash, (decompressed) => window.app.loadText(decompressed));
-	}
+	navigator.requestMIDIAccess().then(access => {
+		window.midiAccess = access;
+		// access.outputs.forEach(device => {
+		// 	console.log(device);
+		// 	console.log(
+		// 		`Output port [type:'${device.type}']
+		// 			id:'${device.id}'
+		// 			manufacturer:'${device.manufacturer}'
+		// 			name:'${device.name}'
+		// 			version:'${device.version}'
+		// 		`);
+		// 	// volca 48-57
+		// 	// 60 middle C
+		// });
+	}).catch(err => {
+		console.error("Midi Device error: ", err);
+		console.error("external devices not loaded :( ");
+	}).finally(() => {
+		window.app = new SynthApp(document.body, audioContext, synth);
+		// Attempt to load song from fraction part of the URL
+		let hash = document.location.hash.replace('#', '');
+		if (hash.length) {
+			decompress(hash, (decompressed) => window.app.loadText(decompressed));
+		}
+	});
 });
 </script>
 </body>

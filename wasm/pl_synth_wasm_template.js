@@ -94,9 +94,6 @@ let pl_synth_wasm_init = (ctx, callback) => {
 			tracks = songData[1/*track*/],
 			num_samples = 0;
 
-		// console.log("song: ", songData);
-		// console.log("tracks: ", songData[1]);
-
 		for (let track of tracks) {
 			let track_samples = track[1/*sequence*/].length * row_len * seqlen + instrumentLen(track[0/*instrument*/], row_len);
 			if (track_samples > num_samples) {
@@ -129,7 +126,8 @@ let pl_synth_wasm_init = (ctx, callback) => {
 					// console.log("\t", row, note);
 					if (note) {
 						first = Math.min(first, write_pos);
-						wasm.gen(left.byteOffset, right.byteOffset, write_pos, row_len, note, ...instrument);
+						wasm.gen(left.byteOffset, right.byteOffset,
+							write_pos, row_len, note, ...instrument);
 					}
 					write_pos += row_len;
 				}
