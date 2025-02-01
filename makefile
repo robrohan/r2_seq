@@ -1,3 +1,5 @@
+.PHONY: spikes build
+
 CC:=clang
 SED:=sed
 BASE64:=base64 -i
@@ -60,4 +62,7 @@ clean:
 	rm -rf build
 
 serve:
-	busboy --root=release
+	busboy --secure --root=release --api-host=127.0.0.1:8080
+
+spikes:
+	busboy --secure --root=spikes

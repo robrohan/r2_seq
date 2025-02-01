@@ -1112,7 +1112,9 @@ class SynthApp {
 	piano = null;
 	numTracks = 8;
 	bpm = 128;
+
 	rowLen = 6014;
+
 	tracks = [];
 	activeTrack = null;
 	sequencer = null;
@@ -1485,6 +1487,7 @@ class SynthApp {
 			return;
 		}
 		this.bpm = v;
+		//                   seconds, sample_rate, quarter_note?, bpm
 		this.rowLen = Math.round(60 * 44100 / 4 / this.bpm);
 		this.history.add('set bpm');
 	}
@@ -1516,14 +1519,19 @@ class SynthApp {
 
 	createSongSource(songData, callback) {
 		// filter empty tracks
-		songData[1/*tracks*/] = songData[1/*tracks*/].filter(track => track[1/*sequence*/].length);
+		songData[1/*tracks*/] = songData[1/*tracks*/].filter(
+			track => track[1/*sequence*/].length
+		);
 
 		if (songData[1/*tracks*/].length === 0) {
 			this.log.write('selection is empty');
 			return;
 		}
 
-		let buffer = this.synth.song(songData);
+		// TODO: set sequence length parameter, and also is this
+		// where the midi should go?
+		// console.log(songData);
+		let buffer = this.synth.song(songData, 16);
 		let source = this.createBufferSource(buffer);
 
 		// Set a timeout to let ctx.currentTime catch up to the load time :/
@@ -1604,7 +1612,10 @@ class SynthApp {
 
 		setTimeout(() => {
 			this.createSongSource(song, (source) => {
-				this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
+				this.log.write(
+					source.buffer.getChannelData(0).length + ' samples in '
+					+ (Date.now()-time)+'ms'
+				);
 
 				source.addEventListener('ended', ev => this.sourceEnded(source));
 				this.playingSources.push(source);
@@ -1631,19 +1642,25 @@ class SynthApp {
 	playSong(sx, ex, sy, ey) {
 		let song = this.getJson();
 
-		if (sx !== undefined && ex !== undefined && sy !== undefined && ey !== undefined) {
+		//           0   8   0   3
+		// console.log(sx, ex, sy, ey);
+		if (sx !== undefined && ex !== undefined && sy !== undefined && ey !== undefined)
+		{
 			for (let track of song[1/*tracks*/]) {
 				track[1/*sequence*/] = track[1/*sequence*/].slice(sy, ey);
 			}
 			song[1/*tracks*/] = song[1/*tracks*/].slice(sx, ex);
 		}
-		else {
+		else
+		{
 			sx = 0;
 			ex = this.numTracks;
 			sy = 0;
 			ey = this.sequencer.maxLen();
 		}
 
+		//                 8                     3
+		// console.log(this.numTracks, this.sequencer.maxLen());
 		this.playhead?.stop();
 
 		this.log.write('generating song');
@@ -1653,6 +1670,7 @@ class SynthApp {
 			this.createSongSource(song, (source) => {
 				this.log.write(source.buffer.getChannelData(0).length + ' samples in ' + (Date.now()-time)+'ms');
 
+				// handler for after the whole source has played
 				source.addEventListener('ended', ev => this.sourceEnded(source));
 				this.playingSources.push(source);
 				this.stopableSource = source;
@@ -1660,6 +1678,7 @@ class SynthApp {
 				this.playhead = new PlayheadSong(this, source, sx, ex, sy, ey, song);
 				this.playhead.onPlayedThrough = this.softStop.bind(this);
 				this.indicator.classList.add('playing');
+
 				this.meter.start(source);
 				source.start();
 			});
@@ -1905,7 +1924,9 @@ class PlayheadSong extends Playhead {
 	}
 
 	update(row) {
-		let y = Math.floor(row / 32);
+		// TODO: update for len here too
+		const patternLen = 16;
+		let y = Math.floor(row / patternLen);
 		if (y + this.sy >= this.ey) {
 			this.playedThrough();
 			return;
@@ -1931,7 +1952,9 @@ class PlayheadSong extends Playhead {
 			}
 		}
 
-		let patternRow = Math.floor(row) % 32;
+		// TODO: the UI of it - the 16 here needs to match the pattern count
+		// const patternLen = 16;
+		let patternRow = Math.floor(row) % patternLen;
 
 		// Set playhead in active patterns
 		for (let pattern of this.activePatterns) {
@@ -1996,7 +2019,6 @@ class PlayheadPattern extends Playhead {
 		this.pattern.setPlayhead(null);
 	}
 }
-
 
 class History {
 	levels = 100;
@@ -2118,7 +2140,6 @@ class OutputLog extends HTMLComponent {
 		}
 	}
 }
-
 
 class DataGrid extends HTMLComponent {
 	width = 0;
@@ -2406,6 +2427,7 @@ class DataGrid extends HTMLComponent {
 	}
 
 	setAtPosition(x, y, v) {
+		// console.log(v, typeof(v), this.valueToText(v));
 		this.element.rows[y+this.dy].cells[x+this.dx].textContent = this.valueToText(v);
 		this.data[x][y] = v ?? 0;
 	}
@@ -2435,7 +2457,6 @@ class DataGrid extends HTMLComponent {
 	}
 }
 
-
 // -----------------------------------------------------------------------------
 // Sequencer
 
@@ -2443,7 +2464,8 @@ class Sequencer extends HTMLComponent {
 	app = null;
 	table = null;
 
-	numDefaultRows = 32;
+	// TODO: Number of patterns in the sequencer
+	numDefaultRows = 16;
 
 	selection = {
 		anchor: {x: 0, y: 0},
@@ -2668,8 +2690,6 @@ class Sequencer extends HTMLComponent {
 	}
 }
 
-
-
 // -----------------------------------------------------------------------------
 // Track
 
@@ -2793,12 +2813,11 @@ class Track extends HTMLComponent{
 	}
 }
 
-
 // -----------------------------------------------------------------------------
 // Pattern
 
 class Pattern extends HTMLComponent {
-	numRows = 32;
+	numRows = 16;
 	track = null;
 	index = 0;
 	table = null;
@@ -2977,8 +2996,8 @@ class Pattern extends HTMLComponent {
 		if (note === null || note === 0) {
 			return '';
 		}
-		note -= 87;
-		return this.noteNames[note % 12] + Math.floor(note / 12);
+		// note -= 87;
+		return this.noteNames[note % 12] + (Math.floor(note / 12) - 2);
 	}
 
 	setNote(note) {
@@ -2986,7 +3005,6 @@ class Pattern extends HTMLComponent {
 		this.track.app.history.add('set note');
 	}
 };
-
 
 // -----------------------------------------------------------------------------
 // Instrument
@@ -3330,7 +3348,6 @@ class Instrument extends HTMLComponent {
 	}
 }
 
-
 // -----------------------------------------------------------------------------
 // WaveformDisplay
 
@@ -3441,22 +3458,20 @@ class WaveformDisplay extends HTMLComponent {
 	}
 }
 
-
-
 // -----------------------------------------------------------------------------
 // Piano
 
 class Piano extends HTMLComponent {
 	app = null;
 	currentOctaveElement = null;
-	currentOctave = 4;
+	currentOctave = 0;
 	keys = [
-		'z','s','x','d','c','v','g','b','h','n','j','m',',','l','.',';','/','q',
-		'2','w','3','e','4','r','t','6','y','7','u','i','9','o','0','p','-','['
+		'z','s','x','d','c','v','g','b','h','n','j','m',',','l','.',';','/',
+		'q','2','w','3','e','4','r','t','6','y','7','u','i','9','o','0','p','-','['
 	];
 	keyCodeMap = [
-		'KeyZ','KeyS','KeyX','KeyD','KeyC','KeyV','KeyG','KeyB','KeyH','KeyN','KeyJ','KeyM','Comma','KeyL','Period','Semicolon','Slash','KeyQ',
-		'Digit2','KeyW','Digit3','KeyE','Digit4','KeyR','KeyT','Digit6','KeyY','Digit7','KeyU','KeyI','Digit9','KeyO','Digit0','KeyP','Minus','BracketLeft'
+		'KeyZ','KeyS','KeyX','KeyD','KeyC','KeyV','KeyG','KeyB','KeyH','KeyN','KeyJ','KeyM','Comma','KeyL','Period','Semicolon','Slash',
+		'KeyQ','Digit2','KeyW','Digit3','KeyE','Digit4','KeyR','KeyT','Digit6','KeyY','Digit7','KeyU','KeyI','Digit9','KeyO','Digit0','KeyP','Minus','BracketLeft'
 	];
 
 	constructor(app) {
@@ -3475,7 +3490,7 @@ class Piano extends HTMLComponent {
 	}
 
 	moveOctave(dir) {
-		this.currentOctave = clamp(this.currentOctave+dir, 1, 8);
+		this.currentOctave = clamp(this.currentOctave+dir, -3, 5);
 		this.currentOctaveElement.textContent = this.currentOctave;
 	}
 
@@ -3506,14 +3521,17 @@ class Piano extends HTMLComponent {
 	note(index) {
 		this.highlightKey(index);
 
-		let note = index + 87 + this.currentOctave * 12;
+		// Midi middle C is 60
+		// in music, it seems to be C4
+		// let note = index + 87 + this.currentOctave * 12;
+		let note = index + 60 + (this.currentOctave * 12);
 		this.app.activeTrack?.instrument.playNote(note);
+
 		if (this.app.focused === this.app.activeTrack?.activePattern) {
 			this.app.activeTrack?.activePattern?.setNote(note);
 		}
 	}
 }
-
 
 let audioContext = new (window.webkitAudioContext||window.AudioContext)();
 

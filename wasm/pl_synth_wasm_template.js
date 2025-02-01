@@ -4,7 +4,7 @@ Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
 SPDX-License-Identifier: MIT
 
 Based on Sonant, published under the Creative Commons Public License
-(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ] 
+(c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
 
 */
 
@@ -18,7 +18,7 @@ let pl_synth_wasm_init = (ctx, callback) => {
 	wasm_source = '{{WASM_MODULE_EMBEDDED_HERE_AS_BASE64}}',
 
 	alloc = (num_samples) => {
-		// Ensures the WASM instance has enough memory for backing two channels 
+		// Ensures the WASM instance has enough memory for backing two channels
 		// of num_samples of audio data. This "overwrites" previously allocated
 		// Float32Arrays, if any.
 		let req_size = wasm_mem_base + num_samples * 2 * 4;
@@ -44,14 +44,14 @@ let pl_synth_wasm_init = (ctx, callback) => {
 		let delay_shift = (instrument[20/*fx_delay_time*/] * row_len) >> 1,
 			delay_amount = instrument[21/*fx_delay_amt*/] / 255,
 			delay_iter = Math.ceil(Math.log(0.1) / Math.log(delay_amount));
-		return instrument[13/*env_attack*/] + 
-			instrument[14/*env.sustain*/] + 
+		return instrument[13/*env_attack*/] +
+			instrument[14/*env.sustain*/] +
 			instrument[15/*env.release*/] +
 			delay_iter * delay_shift;
 	},
 
 	apply_delay = (left, right, row_len, instrument) => {
-		let 
+		let
 			delay_shift = (instrument[20/*fx_delay_time*/] * row_len) >> 1,
 			delay_amount = instrument[21/*fx_delay_amt*/] / 255;
 		if (delay_amount) {
@@ -60,9 +60,12 @@ let pl_synth_wasm_init = (ctx, callback) => {
 	},
 
 	sound = (instrument, note = 147 /* C-5 */, row_len = 5513 /* 120 BPM */) => {
+		// "note" is now a midi message, and we need to translate that
+		// to whatever this needs...  147 == C, midi == 60
+		note += 87;
 		instrument = unundefine(instrument);
 
-		let 
+		let
 			num_samples = instrumentLen(instrument, row_len),
 			audio_buffer = ctx.createBuffer(2, num_samples, samplerate),
 			sound_left = audio_buffer.getChannelData(0),
@@ -81,39 +84,45 @@ let pl_synth_wasm_init = (ctx, callback) => {
 		return audio_buffer;
 	},
 
-	song = (songData) => {
+	song = (songData, seqlen=16) => {
 		songData = unundefine(songData);
 
-		let 
+		let
 			row_len = songData[0/*row_len*/],
 			tracks = songData[1/*track*/],
 			num_samples = 0;
+
+		console.log("song: ", songData);
+		console.log("tracks: ", songData[1]);
+
 		for (let track of tracks) {
-			let track_samples = track[1/*sequence*/].length * row_len * 32 + instrumentLen(track[0/*instrument*/], row_len);
+			let track_samples = track[1/*sequence*/].length * row_len * seqlen + instrumentLen(track[0/*instrument*/], row_len);
 			if (track_samples > num_samples) {
 				num_samples = track_samples;
 			}
 		}
 
-		let 
+		let
 			audio_buffer = ctx.createBuffer(2, num_samples, samplerate),
 			song_left = audio_buffer.getChannelData(0),
 			song_right = audio_buffer.getChannelData(1),
 			[left, right] = alloc(num_samples);
 
 		for (let track of tracks) {
-			let 
+			let
 				instrument = track[0/*instrument*/],
 				sequence = track[1/*sequence*/],
 				write_pos = 0,
 				first = num_samples;
-			
+
 			wasm.clear(left.byteOffset, left.length);
 			wasm.clear(right.byteOffset, right.length);
 
 			for (let pi of sequence) {
-				for (let row = 0; row < 32; row++) {
+				console.log("pattern:", pi, track);
+				for (let row = 0; row < seqlen; row++) {
 					let note = track[2/*patterns*/][pi-1]?.[row];
+					console.log("\t", row, note);
 					if (note) {
 						first = Math.min(first, write_pos);
 						wasm.gen(left.byteOffset, right.byteOffset, write_pos, row_len, note, ...instrument);
