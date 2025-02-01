@@ -92,8 +92,8 @@ let pl_synth_wasm_init = (ctx, callback) => {
 			tracks = songData[1/*track*/],
 			num_samples = 0;
 
-		console.log("song: ", songData);
-		console.log("tracks: ", songData[1]);
+		// console.log("song: ", songData);
+		// console.log("tracks: ", songData[1]);
 
 		for (let track of tracks) {
 			let track_samples = track[1/*sequence*/].length * row_len * seqlen + instrumentLen(track[0/*instrument*/], row_len);
@@ -119,10 +119,12 @@ let pl_synth_wasm_init = (ctx, callback) => {
 			wasm.clear(right.byteOffset, right.length);
 
 			for (let pi of sequence) {
-				console.log("pattern:", pi, track);
+				// console.log("pattern:", pi, track);
 				for (let row = 0; row < seqlen; row++) {
+					// these notes will be in midi format (60==C)
 					let note = track[2/*patterns*/][pi-1]?.[row];
-					console.log("\t", row, note);
+					note += 87;
+					// console.log("\t", row, note);
 					if (note) {
 						first = Math.min(first, write_pos);
 						wasm.gen(left.byteOffset, right.byteOffset, write_pos, row_len, note, ...instrument);
