@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <!--
+PL_SYNTH
 Copyright (c) 2024, Dominic Szablewski - https://phoboslab.org
 SPDX-License-Identifier: MIT
+R2_SEQ
 Copyright (c) 2025, TheRohans - https://therohans.com
 Added Midi Control
 
 Based on Sonant, published under the Creative Commons Public License
 (c) 2008-2009 Jake Taylor [ Ferris / Youth Uprising ]
+
+// volca 48-57
+// midi 60 middle C, C-3
 -->
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>pl_synth</title>
+	<title>r2_sync</title>
 	<style>
 		:root {
 			--primary_100: #79D8C2;
@@ -1156,7 +1161,7 @@ class SynthApp {
 		this.element = h('div', {class: 'app'},
 			h('div', {class: 'row pane menu'},
 				h('div', {class: 'logo'},
-					h('span', {text: 'pl_synth'}),
+					h('span', {text: 'r2_seq'}),
 					h('span', {class: 'slashes', text: '//'}),
 					h('span', {class: 'indicator', title: 'Play/Stop [Space]', oncreate: el => this.indicator = el, onclick: ev => this.play()},
 						h('span', {class: 'if_stopped', text: '▶'}),
@@ -1175,10 +1180,10 @@ class SynthApp {
 					}),
 				),
 
-				h('button', {text: 'New', onclick: ev => this.new()}),
-				h('button', {text: 'Load', onclick: ev => this.load()}),
-				h('button', {text: 'Save', onclick: ev => this.save()}),
-				h('button', {text: 'Help?', onclick: ev => this.help()})
+				// h('button', {text: 'New', onclick: ev => this.new()}),
+				// h('button', {text: 'Load', onclick: ev => this.load()}),
+				// h('button', {text: 'Save', onclick: ev => this.save()}),
+				// h('button', {text: 'Help?', onclick: ev => this.help()})
 			),
 			h('div', {class: 'tracker'},
 				h('div', {class: 'column'},
@@ -1542,8 +1547,6 @@ class SynthApp {
 		// then assume this is all midi
 		if(songData[1][0][0].length == 2)
 		{
-			//console.log(songData);
-			//console.log(callback);
 			const source = null;
 			setTimeout(() => callback(source), 1);
 		}
@@ -1631,7 +1634,7 @@ class SynthApp {
 		let callback = null;
 		if(is_midi) {
 			callback = (source) => {
-				console.log("midi");
+				// console.log("midi");
 				this.playhead = new PlayheadMidiPattern(this, pattern, start, end, patternData);
 				this.playhead.onPlayedThrough = this.softStop.bind(this);
 			};
@@ -2027,8 +2030,8 @@ class PlayheadSong extends Playhead {
 
 class PlayheadMidiSong extends PlayheadSong {
 
-	lastRow = 0;
-	lastTrack = 0;
+	lastRow = -1;
+	lastTrack = -1;
 
 	update(row, steps=16) {
 		const y = Math.floor(row / steps);
@@ -2084,7 +2087,7 @@ class PlayheadMidiSong extends PlayheadSong {
 					const note = patternData[patternRow];
 					if (note) {
 						// TODO: HACK: this is not the right way to do this refactor
-						console.log(row, this.lastRow, t, this.lastTrack);
+						// console.log(row, this.lastRow, t, this.lastTrack);
 						if( row != this.lastRow || (row == this.lastRow && t > this.lastTrack) ) {
 							const mi = new MidiInstrument(null, oscData[0]+"", oscData[1]);
 							this.lastRow = row;
@@ -2100,7 +2103,6 @@ class PlayheadMidiSong extends PlayheadSong {
 		}
 	}
 }
-
 
 class PlayheadMidiPattern extends Playhead {
 	pattern = null;
@@ -2897,6 +2899,7 @@ class Track extends HTMLComponent{
 			h('div', {class: 'patterns', oncreate: el => this.patternsElement = el},
 				this.patterns
 			),
+			// TODO: refactor
 			// this.instrument.element
 		);
 		this.deactivate();
@@ -3814,18 +3817,6 @@ window.midiAccess = null;
 pl_synth_wasm_init(audioContext, (synth) => {
 	navigator.requestMIDIAccess().then(access => {
 		window.midiAccess = access;
-		// access.outputs.forEach(device => {
-		// 	console.log(device);
-		// 	console.log(
-		// 		`Output port [type:'${device.type}']
-		// 			id:'${device.id}'
-		// 			manufacturer:'${device.manufacturer}'
-		// 			name:'${device.name}'
-		// 			version:'${device.version}'
-		// 		`);
-		// 	// volca 48-57
-		// 	// 60 middle C
-		// });
 	}).catch(err => {
 		console.error("Midi Device error: ", err);
 		console.error("external devices not loaded :( ");
