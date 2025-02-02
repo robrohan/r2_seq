@@ -1542,8 +1542,8 @@ class SynthApp {
 		// then assume this is all midi
 		if(songData[1][0][0].length == 2)
 		{
-			console.log(songData);
-			console.log(callback);
+			//console.log(songData);
+			//console.log(callback);
 			const source = null;
 			setTimeout(() => callback(source), 1);
 		}
@@ -1632,7 +1632,6 @@ class SynthApp {
 		if(is_midi) {
 			callback = (source) => {
 				console.log("midi");
-
 				this.playhead = new PlayheadMidiPattern(this, pattern, start, end, patternData);
 				this.playhead.onPlayedThrough = this.softStop.bind(this);
 			};
@@ -1718,6 +1717,10 @@ class SynthApp {
 					this.indicator.classList.add('playing');
 					this.meter.start(source);
 					source.start();
+				} else {
+					this.playhead = new PlayheadMidiSong(this, null, sx, ex, sy, ey, song);
+					this.playhead.onPlayedThrough = this.softStop.bind(this);
+					this.indicator.classList.add('playing');
 				}
 
 			});
@@ -1919,7 +1922,7 @@ class Playhead {
 		const time = this.app.ctx.currentTime - this.startTime;
 		const row = Math.floor(time * 44100 / this.app.rowLen);
 		this.update(row, this.app.defaultStep);
-		console.log(row, time);
+		// console.log(row, time);
 		window.requestAnimationFrame(this.onRequestAnimationFrame.bind(this));
 	}
 
@@ -2022,6 +2025,83 @@ class PlayheadSong extends Playhead {
 	}
 }
 
+class PlayheadMidiSong extends PlayheadSong {
+
+	lastRow = 0;
+	lastTrack = 0;
+
+	update(row, steps=16) {
+		const y = Math.floor(row / steps);
+		if (y + this.sy >= this.ey) {
+			this.playedThrough();
+			return;
+		}
+
+		this.app.sequencer.setPlayhead(this.sx, this.ex, y + this.sy);
+
+		// Changed sequence index, find active patterns
+		if (this.lastY !== y) {
+			this.lastY = y;
+			this.resetActivePatterns();
+
+			for (let i = 0; i < this.songData[1/*tracks*/].length; i++) {
+				const trackData = this.songData[1/*tracks*/][i];
+				const sequenceData = trackData[1/*sequence*/];
+				const patternIndex = sequenceData[y];
+				if (patternIndex) {
+					const pattern = this.app.tracks[i + this.sx].patterns[patternIndex-1];
+					if (pattern) {
+						this.activePatterns.push(pattern);
+					}
+				}
+			}
+		}
+
+		// TODO: the UI of it - the 16 here needs to match the pattern count
+		let patternRow = Math.floor(row) % steps;
+
+		// Set playhead in active patterns
+		for (let pattern of this.activePatterns) {
+			pattern.setPlayhead(patternRow);
+		}
+
+		if(row == 0) {
+			this.lastRow = 0;
+		}
+
+		const trackLen = this.songData[1/*tracks*/].length;
+		// Set piano
+		for (let t = 0; t < trackLen; t++) {
+			const trackData = this.songData[1/*tracks*/][t];
+			const sequenceData = trackData[1/*sequence*/];
+			const patternIndex = sequenceData[y];
+			if (patternIndex) {
+				// oscillator or midi device data
+				const oscData = trackData[0];
+				const patternData = trackData[2/*patterns*/][patternIndex-1];
+
+				if (patternData) {
+					const note = patternData[patternRow];
+					if (note) {
+						// TODO: HACK: this is not the right way to do this refactor
+						console.log(row, this.lastRow, t, this.lastTrack);
+						if( row != this.lastRow || (row == this.lastRow && t > this.lastTrack) ) {
+							const mi = new MidiInstrument(null, oscData[0]+"", oscData[1]);
+							this.lastRow = row;
+							this.lastTrack = t;
+							mi.playNote(note);
+						}
+						// HACK
+
+						this.app.piano.highlightNote(note);
+					}
+				}
+			}
+		}
+	}
+}
+
+
 class PlayheadMidiPattern extends Playhead {
 	pattern = null;
 	patternData = null;
@@ -2046,7 +2126,7 @@ class PlayheadMidiPattern extends Playhead {
 		if (changed) {
 			let note = this.patternData[row];
 			if (note) {
-				console.log(note, this.pattern);
+				// console.log(note, this.pattern);
 				this.pattern.track.instrument.playNote(note);
 				this.app.piano.highlightNote(note);
 			}
@@ -3184,7 +3264,7 @@ class MidiInstrument extends HTMLComponent {
 			output.send(noteOnMessage);
 			// timestamp = now + 1000ms
 			output.send(noteOffMessage, window.performance.now() + 1000.0);
-			console.debug(noteOnMessage, noteOffMessage);
+			// console.debug(noteOnMessage, noteOffMessage);
 		} else {
 			console.error("output device is null");
 		}
