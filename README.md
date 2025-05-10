@@ -6,6 +6,4 @@ Currently, is has only been tested in Chrome on a Macbook, but it [should work](
 
 This was done in a weekend for an art project I am working on, and the code is hacked together by modifying the very cool browser based [pl_synth](https://github.com/phoboslab/pl_synth).
 
-
 ![Screen shot](./doc/screen.jpg)
-

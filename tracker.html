@@ -1180,9 +1180,9 @@ class SynthApp {
 					}),
 				),
 
-				// h('button', {text: 'New', onclick: ev => this.new()}),
-				// h('button', {text: 'Load', onclick: ev => this.load()}),
-				// h('button', {text: 'Save', onclick: ev => this.save()}),
+				h('button', {text: 'New', onclick: ev => this.new()}),
+				h('button', {text: 'Load', onclick: ev => this.load()}),
+				h('button', {text: 'Save', onclick: ev => this.save()}),
 				// h('button', {text: 'Help?', onclick: ev => this.help()})
 			),
 			h('div', {class: 'tracker'},
@@ -2873,16 +2873,22 @@ class Track extends HTMLComponent{
 			this.patterns.push(new Pattern(this, i, this.app.defaultStep));
 		}
 
+		this.render();
+
+		this.deactivate();
+	}
+
+	render() {
 		const outputDevices = [];
 		midiAccess.outputs.forEach(device =>
 			outputDevices.push({value: device.id, text: device.name})
 		);
 
 		this.element = h('div', {class: 'row track'},
-			h('div', {class: 'head', text: 'Track ' + (index+1)},
+			h('div', {class: 'head', text: 'Track ' + (this.index+1)},
 				h('select', {onchange: ins => this.handleInstrument(ins), title: 'midi device' },
 					h('option', {value: 'select', text: 'No Device'}),
-					outputDevices.map(d => h('option', {value: d.value, text: d.text})
+						outputDevices.map(d => h('option', {value: d.value, text: d.text})
 					)
 				),
 
@@ -2902,7 +2908,6 @@ class Track extends HTMLComponent{
 			// TODO: refactor
 			// this.instrument.element
 		);
-		this.deactivate();
 	}
 
 	handleChannel(chanMessage) {
@@ -2961,7 +2966,14 @@ class Track extends HTMLComponent{
 
 	setJson(track) {
 		this.reset();
-		this.instrument.setJson(track[0/*instrument*/]);
+
+		if(track[0].length == 2) {
+			this.instrument = null;
+			this.instrument = new MidiInstrument(this, track[0/*instrument*/][0],track[0/*instrument*/][1]);
+		} else {
+			this.instrument.setJson(track[0/*instrument*/]);
+		}
+
 		let patterns = track[2/*patterns*/];
 
 		while (this.patterns.length < patterns.length) {
@@ -2971,6 +2983,8 @@ class Track extends HTMLComponent{
 		for (let i = 0; i < patterns.length; i++) {
 			this.patterns[i].setJson(patterns[i]);
 		}
+
+		// this.render();
 	}
 
 	activate() {
@@ -3222,6 +3236,8 @@ class Pattern extends HTMLComponent {
 // Instrument
 
 class MidiInstrument extends HTMLComponent {
+	static Indices = ['device_id', 'channel'];
+
 	track = null;
 	data = [];
 
@@ -3253,21 +3269,42 @@ class MidiInstrument extends HTMLComponent {
 		return [this.device_id, this.channel];
 	}
 
+	setJson(instrumentData) {
+		for (let i = 0; i < MidiInstrument.Indices.length; i++) {
+			this.device_id = instrumentData[0];
+			this.channel = instrumentData[1];
+		}
+	}
+
 	sendNote(id, channel, note, velocity=0x7f)
 	{
-		const NOTE_ON=0x90;
-		const NOTE_OFF=0x80;
+		this.noteOn(id, channel, note, velocity);
+		this.noteOff(id, channel, note, velocity, window.performance.now() + 250);
+	}
 
+	noteOn(id, channel, note, velocity=0x7f, time=0)
+	{
+		const NOTE_ON=0x90;
 		const output = window.midiAccess.outputs.get(id);
 		const noteOnMessage = [(NOTE_ON+channel), note, velocity];
-		const noteOffMessage = [(NOTE_OFF+channel), note, 0x20];
 
 		if(output) {
 			// omitting the timestamp means send immediately.
 			output.send(noteOnMessage);
-			// timestamp = now + 1000ms
-			output.send(noteOffMessage, window.performance.now() + 1000.0);
-			// console.debug(noteOnMessage, noteOffMessage);
+		} else {
+			console.error("output device is null");
+		}
+	}
+
+	noteOff(id, channel, note, velocity=0x7f, time=0)
+	{
+		const NOTE_OFF=0x80;
+		const output = window.midiAccess.outputs.get(id);
+		const noteOffMessage = [(NOTE_OFF+channel), note, 0x20];
+
+		if(output) {
+			// omitting the timestamp means send immediately.
+			output.send(noteOffMessage, time);
 		} else {
 			console.error("output device is null");
 		}
@@ -3451,7 +3488,7 @@ class Instrument extends HTMLComponent {
 			this.data[i] = prop.value;
 		}
 
-		this.listener = window.addEventListener("resize", ev => this.waveform.renderIfDirty());
+		this.listener = window.addEventListener("resize", ev => this?.waveform?.renderIfDirty());
 	}
 
 	load() {
